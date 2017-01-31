@@ -1,16 +1,52 @@
 # coding: utf-8
-import os
+from os import path, makedirs, urandom, getpid
+from binascii import hexlify
 import shutil
+import inspect
+
+import requests as req
+
 import tom_lib.utils as utils
-from flask import Flask, render_template
+
+from flask import Flask, render_template, redirect, url_for
+from flask.ext.qrcode import QRcode
+
 from tom_lib.nlp.topic_model import NonNegativeMatrixFactorization
 from tom_lib.structure.corpus import Corpus
 
-__author__ = "Adrien Guille"
-__email__ = "adrien.guille@univ-lyon2.fr"
+import logging
+
+__author__ = "Daniel Pérez"
+__email__ = "dperez@human-forecast.com"
+
+
+def save_pid():
+    """Save pid into a file: filename.pid."""
+    pidfilename = inspect.getfile(inspect.currentframe()) + ".pid"
+    f = open(pidfilename, 'w')
+    f.write(str(getpid()))
+    f.close()
+
+
+def generate_url(host, protocol='http', port=80, directory=''):
+
+    if isinstance(directory, list):
+        directory = '/'.join(directory)
+
+    return "%s://%s:%d/%s" % (protocol, host, port, directory)
+
+
+def run():
+    flask_options = dict(port=PORT, host='0.0.0.0', debug=True)
+    app.secret_key = hexlify(urandom(24))
+    app.run(**flask_options)
 
 # Flask Web server
 app = Flask(__name__, static_folder='browser/static', template_folder='browser/templates')
+QRcode(app)
+
+MY_IP = req.get(generate_url('jsonip.com')).json()['ip']
+PORT = 88
 
 # Parameters
 max_tf = 0.8
@@ -33,9 +69,9 @@ topic_model.infer_topics(num_topics=num_topics)
 topic_model.print_topics(num_words=10)
 
 # Clean the data directory
-if os.path.exists('browser/static/data'):
+if path.exists('browser/static/data'):
     shutil.rmtree('browser/static/data')
-os.makedirs('browser/static/data')
+makedirs('browser/static/data')
 
 # Export topic cloud
 utils.save_topic_cloud(topic_model, 'browser/static/data/topic_cloud.json')
@@ -70,7 +106,17 @@ for topic_id in range(topic_model.nb_topics):
                            'browser/static/data/author_network' + str(topic_id) + '.json')
 
 
-@app.route('/')
+@app.route('/', methods=['GET'])
+def root():
+    return redirect(url_for('index'))
+
+
+@app.route('/index', methods=['GET'])
+def index():
+    return render_template('index.html', about_url=generate_url(MY_IP, port=PORT, directory=url_for('about')[1:]))
+
+
+"""@app.route('/', methods=['GET'])
 def index():
     return render_template('index.html',
                            topic_ids=range(topic_model.nb_topics),
@@ -81,17 +127,17 @@ def index():
                            max_tf=max_tf,
                            min_tf=min_tf,
                            vectorization=vectorization,
-                           num_topics=num_topics)
+                           num_topics=num_topics)"""
 
 
-@app.route('/topic_cloud.html')
+@app.route('/topic_cloud.html', methods=['GET'])
 def topic_cloud():
     return render_template('topic_cloud.html',
                            topic_ids=range(topic_model.nb_topics),
                            doc_ids=range(corpus.size))
 
 
-@app.route('/vocabulary.html')
+@app.route('/vocabulary.html', methods=['GET'])
 def vocabulary():
     word_list = []
     for i in range(len(corpus.vocabulary)):
@@ -110,7 +156,7 @@ def vocabulary():
                            vocabulary_size=len(word_list))
 
 
-@app.route('/topic/<tid>.html')
+@app.route('/topic/<tid>.html', methods=['GET'])
 def topic_details(tid):
     ids = topic_associations[int(tid)]
     documents = []
@@ -126,7 +172,7 @@ def topic_details(tid):
                            doc_ids=range(corpus.size))
 
 
-@app.route('/document/<did>.html')
+@app.route('/document/<did>.html', methods=['GET'])
 def document_details(did):
     vector = topic_model.corpus.vector_for_document(int(did))
     word_list = []
@@ -150,7 +196,7 @@ def document_details(did):
                            short_content=corpus.title(int(did)))
 
 
-@app.route('/word/<wid>.html')
+@app.route('/word/<wid>.html', methods=['GET'])
 def word_details(wid):
     documents = []
     for document_id in corpus.docs_for_word(int(wid)):
@@ -164,6 +210,18 @@ def word_details(wid):
                            doc_ids=range(corpus.size),
                            documents=documents)
 
+
+@app.route('/about', methods=['GET'])
+def about():
+    return render_template('about.html')
+
+
 if __name__ == '__main__':
-    # Access the browser at http://localhost:2016/
-    app.run(debug=True, host='localhost', port=2016)
+
+    save_pid()
+
+    logfilename = inspect.getfile(inspect.currentframe()) + ".log"
+    logging.basicConfig(filename=logfilename, level=logging.INFO, format='%(asctime)s %(message)s')
+    logging.info("Started")
+
+    run()

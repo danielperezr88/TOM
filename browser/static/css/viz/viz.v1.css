@@ -1,0 +1,15 @@
+svg text{
+  text-anchor:middle;
+  font-size:18px;
+}
+
+svg .values text{
+  pointer-events:none;
+  stroke-width: 0.5px;
+  z-index: 50;
+}
+
+.groups:hover{
+  cursor:pointer;
+  font-weight:bold;
+}

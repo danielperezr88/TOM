@@ -22,7 +22,7 @@ setup(
         'Development Status :: 4 - Beta',
         'Intended Audience :: Science/Research',
         "Operating System :: OS Independent",
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.4',
         'Topic :: Scientific/Engineering',
         'Topic :: Text Processing'
     ], 

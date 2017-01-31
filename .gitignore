@@ -5,6 +5,10 @@
 
 *.pyc
 
+*.pid
+
+*.log
+
 .idea/
 
 misc/
