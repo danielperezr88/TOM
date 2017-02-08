@@ -15,4 +15,17 @@ misc/
 
 browser/static/data/
 
+input/configinput*
+
+input/input*
+!input/input.py
+
+input/data
+input/topic_model_browser_cse_api_keys.py
+topic_model_browser_active_inputs.py
+topic_model_browser_config.py
+
+pickled_models
+
+
 *local.py

@@ -1,27 +1,14 @@
 {% extends "index.html" %}
-{% block header_extra %}{% endblock %}
 {% block body %}
-    <div id="content">
-      <div id="form-outer-wrapper">
-        <div id="form-inner-wrapper">
-          <div id="header">
-            <h4>Vocabulary</h4>
-            Number of words : {{ vocabulary_size }}
-          </div>
-          <div id="wrap">
-            {% for vocabulary in splitted_vocabulary %}
-              <div id="five_columns">
-                <ul>
-                  {% for indexed_word in vocabulary %}
-                    <li><a href="word/{{ indexed_word[0] }}">{{ indexed_word[1] }}</a></li>
-                  {% endfor %}
-                </ul>
-              </div>
-            {% endfor %}
-          </div>
-        </div>
+  <div id="content">
+    <div id="form-outer-wrapper">
+      <div id="form-inner-wrapper">
+        <h1>Void or Non-Existent Term</h1>
+        <p>Sorry. Your term could not be found. It could be void or non-existent.</p>
+        <p><a href="{{ url_for('index') }}">Go somewhere nice</a></p>
       </div>
     </div>
+  </div>
 {% endblock %}
 {% block footer_extra %}
   <script>

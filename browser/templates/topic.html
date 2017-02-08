@@ -1,37 +1,32 @@
-<!DOCTYPE html>
-<head>
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html">
-    <title>Details about topic {{ topic_id }}</title>
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename = 'css/style.css') }}"/>
-    <link href="../static/css/jquery.dataTables.min.css" rel="stylesheet" type="text/css">
-    <script src="../static/js/jquery-1.12.0.min.js" charset="utf-8"></script>
-    <script src="../static/js/jquery.dataTables.min.js" charset="utf-8"></script>
-</head>
-<style>
+{% extends "index.html" %}
+{% block header_extra %}
+  <link href="{{ url_for('static', filename ='css/jquery.dataTables/jquery.dataTables.min.css') }}" rel="stylesheet" type="text/css">
+  <!--<script src="{{ url_for('static', filename ='js/jquery/jquery-1.12.0.min.js') }}" charset="utf-8"></script>-->
+  <script src="{{ url_for('static', filename ='js/jquery.dataTables/jquery.dataTables.min.js') }}" charset="utf-8"></script>
+  <style>
     .axis path,
     .axis line {
-        fill: none;
-        stroke: #000;
-        shape-rendering: crispEdges;
+      fill: none;
+      stroke: #000;
+      shape-rendering: crispEdges;
     }
 
     .bar {
-        fill: #55acee;
+      fill: #55acee;
     }
 
     .bar:hover {
-        fill: #55acee;
+      fill: #55acee;
     }
 
     .x.axis path {
-        display: none;
+      display: none;
     }
 
     .line {
-        fill: none;
-        stroke: #ff5611;
-        stroke-width: 1.5px;
+      fill: none;
+      stroke: #ff5611;
+      stroke-width: 1.5px;
     }
 
     .node {
@@ -43,63 +38,81 @@
       stroke: #999;
       stroke-opacity: 2;
     }
-</style>
-<body>
-<div id="navigation">
-    <select onChange="window.location.href=((this.value == 'topics') ? '../topic_cloud.html' : '../vocabulary.html')">
-        <option selected="selected" disabled="disabled">Overview</option>
-        <option>topics</option>
-        <option>vocabulary</option>
-    </select>
-    -
-    <select onChange="window.location.href='../topic/'+this.value+'.html'">
-        <option selected="selected" disabled="disabled">Details about a topic</option>
-        {% for i in topic_ids %}
-            <option>{{ i }}</option>
-        {% endfor %}
-    </select>
-</div>
-<div id="header">
-    <h1>Details about topic {{ topic_id }}</h1>
-    Overall frequency : {{ frequency }}%
-</div>
-<div id="wrap">
-    <h2>Most relevant words</h2>
-    <bar-chart></bar-chart>
-    <h2>Related documents ({{documents|length}})</h2>
-    <table id="documents" class="display" cellspacing="0" width="900px">
-        <thead>
-        <tr>
-            <th>Title</th>
-            <th>Author(s)</th>
-            <th>Date</th>
-        </tr>
-        </thead>
-        <tbody>
-        {% for doc in documents %}
-            <tr>
-                <td>{{ doc[0] }}</td>
-                <td>{{ doc[1] }}</td>
-                <td>{{ doc[2] }}</td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-    <h2>Topic frequency</h2>
-    <line-chart></line-chart>
-    <h2>Author network</h2>
-    <author-network></author-network>
-    <h2>Number of documents per institution</h2>
-    <bar-chart2></bar-chart2>
-</div>
-</body>
-<script>
+  </style>
+{% endblock %}
+{% block body %}
+    <div id="content">
+      <div id="form-outer-wrapper">
+        <div id="form-inner-wrapper">
+          <div id="header">
+            <h4>Details about topic {{ topic_id }}</h4>
+            Overall frequency : {{ frequency }}%
+          </div>
+          <div id="wrap">
+            <h2>Most relevant words</h2>
+            <bar-chart></bar-chart>
+            <h2>Related documents ({{documents|length}})</h2>
+            <table id="documents" class="display" cellspacing="0" width="900px">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Author(s)</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for doc in documents %}
+                  <tr>
+                    <td>{{ doc[0] }}</td>
+                    <td>{{ doc[1] if doc[1] != 'nan' else '' }}</td>
+                    <td>{{ doc[2] }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            <h2>Topic frequency</h2>
+            <line-chart></line-chart>
+            <!--<h2>Author network</h2>
+            <author-network></author-network>-->
+            <!--<h2>Number of documents per institution</h2>
+            <bar-chart2></bar-chart2>-->
+          </div>
+        </div>
+      </div>
+    </div>
+{% endblock %}
+{% block footer_extra %}
+  <script>
+
+    var interval = Math.floor(1000 / 60 * 10);
+    var resizeTimer;
+    var wrapper = $('#form-inner-wrapper');
+
+    function wrapper_resize() {
+      wrapper.css('width', Math.max.apply(null, [270,parseInt(3*$(window).width()/4)]));
+    }
+
+    $(document).ready(function(){
+
+      window.addEventListener('resize', function (event) {
+        if (resizeTimer !== false) {
+          clearTimeout(resizeTimer);
+        }
+        resizeTimer = setTimeout(function () {
+          wrapper_resize();
+        }, interval);
+      });
+
+      wrapper_resize();
+
+    });
+  </script>
+  <script>
     $(document).ready(function(){
         $('#documents').DataTable();
     });
-</script>
-<script src="{{ url_for('static', filename = 'js/d3.min.js' )}}"></script>
-<script>
+  </script>
+  <script>
     // (document.body.clientWidth)*0.6
     var margin = {top: 10, right: 0, bottom: 100, left: 40},
             width = 900 - margin.left - margin.right,
@@ -119,7 +132,7 @@
             .attr("height", height + margin.top + margin.bottom)
             .append("g")
             .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-    d3.tsv("{{ url_for('static', filename = 'data/word_distribution'+topic_id+'.tsv') }}", type, function(error, data) {
+    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'_word_distribution'+topic_id+'.tsv') }}", type, function(error, data) {
         x.domain(data.map(function(d) { return d.word; }));
         y.domain([0, d3.max(data, function(d) { return d.weight; })]);
         svg.append("g")
@@ -148,13 +161,14 @@
                 .attr("width", x.rangeBand())
                 .attr("y", function(d) { return y(d.weight); })
                 .attr("height", function(d) { return height - y(d.weight); })
+                .on('click', function(d) {window.location.href = '/{{ iid }}/word/' + d.word_id;})
     });
     function type(d) {
         d.weight = +d.weight;
         return d;
     }
-</script>
-<script>
+  </script>
+  <script>
     var margin2 = {top: 10, right: 20, bottom: 30, left: 45},
             width2 = 600 - margin2.left - margin2.right,
             height2 = 150 - margin2.top - margin2.bottom;
@@ -180,7 +194,7 @@
             .attr("height", height2 + margin2.top + margin2.bottom)
             .append("g")
             .attr("transform", "translate(" + margin2.left + "," + margin2.top + ")");
-    d3.tsv("{{ url_for('static', filename = 'data/frequency'+topic_id+'.tsv') }}", function(error, data2) {
+    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'_frequency'+topic_id+'.tsv') }}", function(error, data2) {
         if (error) throw error;
 
         data2.forEach(function(d) {
@@ -206,8 +220,8 @@
                 .attr("class", "line")
                 .attr("d", line);
     });
-</script>
-<script>
+  </script>
+  <!--<script>
     var width3 = 600,
             height3 = 400;
     var force = d3.layout.force()
@@ -217,7 +231,7 @@
     var svg3 = d3.select("author-network").append("svg")
             .attr("width", width3)
             .attr("height", height3);
-    d3.json("{{ url_for('static', filename = 'data/author_network'+topic_id+'.json') }}", function(error, graph) {
+    d3.json("{{ url_for('static', filename = 'data/input'+iid+'_author_network'+topic_id+'.json') }}", function(error, graph) {
         if (error) throw error;
         force
                 .nodes(graph.nodes)
@@ -246,8 +260,8 @@
                     .attr("cy", function(d) { return d.y; });
         });
     });
-</script>
-<script>
+  </script>-->
+  <!--<script>
     var margin4 = {top: 10, right: 0, bottom: 100, left: 40},
             width4 = 600 - margin.left - margin.right,
             height4 = 350 - margin.top - margin.bottom;
@@ -266,7 +280,7 @@
             .attr("height", height4 + margin4.top + margin4.bottom)
             .append("g")
             .attr("transform", "translate(" + margin4.left + "," + margin4.top + ")");
-    d3.tsv("{{ url_for('static', filename = 'data/affiliation_repartition'+topic_id+'.tsv') }}", type, function(error, data4) {
+    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'_affiliation_repartition'+topic_id+'.tsv') }}", type, function(error, data4) {
         x4.domain(data4.map(function(d) { return d.affiliation; }));
         y4.domain([0, d3.max(data4, function(d) { return d.count; })]);
         svg4.append("g")
@@ -301,4 +315,5 @@
         d.count = +d.count;
         return d;
     }
-</script>
+  </script>-->
+{% endblock %}

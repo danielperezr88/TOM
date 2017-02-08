@@ -1,135 +1,220 @@
-<!DOCTYPE html>
-<head>
-  <meta charset="utf-8">
-  <meta http-equiv="Content-Type" content="text/html">
-  <title>Details about article {{ doc_id }}</title>
-  <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename = 'css/style.css') }}"/>
-</head>
-<style>
-.axis path,
-.axis line {
-  fill: none;
-  stroke: #000;
-  shape-rendering: crispEdges;
-}
+{% extends "index.html" %}
+{% block header_extra %}
+  <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+  <style>
+    .axis path,
+    .axis line {
+      fill: none;
+      stroke: #000;
+      shape-rendering: crispEdges;
+    }
 
-.bar {
-  fill: #3DC9FF;
-}
+    .bar {
+      fill: #3DC9FF;
+    }
 
-.bar:hover {
-  fill: #34aad8;
-}
+    .bar:hover {
+      fill: #34aad8;
+    }
 
-.x.axis path {
-  display: none;
-}
-</style>
-<body>
-    <div id="navigation">
-        <select onChange="window.location.href=((this.value == 'topics') ? '../topic_cloud.html' : '../vocabulary.html')">
-            <option selected="selected" disabled="disabled">Overview</option>
-            <option>topics</option>
-            <option>vocabulary</option>
-        </select>
-        -
-        <select onChange="window.location.href='../topic/'+this.value+'.html'">
-            <option selected="selected" disabled="disabled">Details about a topic</option>
-            {% for i in topic_ids %}
-                <option>{{ i }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div id="header">
-        <h1>Details about article {{ doc_id }}</h1>
-        Authors: {{ authors }} - Date: {{ year }}
-    </div>
-    <div id="wrap">
-        <div id="left_column">
+    .x.axis path {
+      display: none;
+    }
+
+    div.ui-dialog.ui-resizable {
+        background-color: white;
+        border-width: 2px;
+        border-color: rgb(24, 30, 37);
+        padding: 0px 0.2em 0.2em 0.1em;
+    }
+
+    div.ui-dialog > div.ui-dialog-titlebar {
+        border: none;
+        border-radius: 0;
+        background-color: white;
+        padding: 0;
+    }
+
+    div.ui-dialog > button.ui-dialog-titlebar-close {
+        border: none;
+        border-radius: 0;
+        background-color: white;
+    }
+
+    #dialog {
+        overflow: hidden;
+        padding: 0;
+        height: 480.8px !important;
+    }
+  </style>
+{% endblock %}
+{% block body %}
+  <div id="content">
+    <div id="form-outer-wrapper">
+      <div id="form-inner-wrapper">
+        <div id="header">
+          <h4>Details about article {{ doc_id }}</h4>
+          Authors: {{ authors }} - Date: {{ year }}
+        </div>
+        <div id="wrap">
+          <h2>Document preview</h2>
+          <button id="opener"><i class="fa fa-chevron-down" aria-hidden="true"></i></button>
+          <span></span>
+          <div id="dialog" style="width:80%;height:80%;">
+            <iframe src="{{ url }}" style="width:100%;height:100%;border-width:0;"></iframe>
+          </div>
+        </div>
+        <div id="wrap">
+          <div id="left_column">
             <h2>Topic repartition</h2>
             <bar-chart></bar-chart>
-        </div>
-        <div id="right_column">
+          </div>
+          <div id="right_column">
             <h2>Vector representation</h2>
             <ul>
-                {% for weighted_word in words %}
-                    {% if weighted_word[1] > 0 %}
-                        <li><strong><a href="../word/{{ weighted_word[2] }}.html">{{ weighted_word[0] }}</a></strong> ({{ weighted_word[1] }})</li>
-                    {% endif %}
-                {% endfor %}
+              {% for weighted_word in words %}
+                {% if weighted_word[1] > 0 %}
+                  <li><strong><a href="../word/{{ weighted_word[2] }}">{{ weighted_word[0] }}</a></strong> ({{ weighted_word[1] }})</li>
+                {% endif %}
+              {% endfor %}
             </ul>
+          </div>
         </div>
-    </div>
-    <div id="wrap">
-        <div id="left_column">
+        <div id="wrap">
+          <div id="left_column">
             <h2>Similar documents (top 5)</h2>
             <ul>
-                {% for doc in documents %}
-                    <li>
-                        <a href="../document/{{ doc[3] }}.html">{{ doc[0] }}</a> ({{ doc[4] }})
-                        <br>
-                        {{ doc[1] }}
-                        <br>
-                        {{ doc[2] }}
-                    </li>
-                {% endfor %}
+              {% for doc in documents %}
+                <li>
+                  <a href="../document/{{ doc[3] }}">{{ doc[0] }}</a> ({{ doc[4] }})
+                  <br>
+                  {{ doc[1] }}
+                  <br>
+                  {{ doc[2] }}
+                </li>
+              {% endfor %}
             </ul>
+          </div>
         </div>
+      </div>
     </div>
-</body>
-<script src="{{ url_for('static', filename = 'js/d3.min.js' )}}"></script>
-<script>
-var margin = {top: 10, right: 0, bottom: 60, left: 40},
-    width = 600 - margin.left - margin.right,
-    height = 350 - margin.top - margin.bottom;
-var x = d3.scale.ordinal()
-    .rangeRoundBands([0, width], .1);
-var y = d3.scale.linear()
-    .range([height, 0]);
-var xAxis = d3.svg.axis()
-    .scale(x)
-    .orient("bottom");
-var yAxis = d3.svg.axis()
-    .scale(y)
-    .orient("left");
-var svg = d3.select("bar-chart").append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-  .append("g")
-    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-d3.tsv("{{ url_for('static', filename = 'data/topic_distribution_d'+doc_id+'.tsv') }}", type, function(error, data) {
-  x.domain(data.map(function(d) { return d.topic; }));
-  y.domain([0, d3.max(data, function(d) { return d.weight; })]);
-  svg.append("g")
-      .attr("class", "x axis")
-      .attr("transform", "translate(0," + height + ")")
-      .call(xAxis)
-      .selectAll("text")
-            .style("text-anchor", "end")
-            .attr("dx", "-1em")
-            .attr("dy", "-0.7em")
-            .attr("transform", "rotate(-90)" );
-  svg.append("g")
-      .attr("class", "y axis")
-      .call(yAxis)
-    .append("text")
-      .attr("transform", "rotate(-90)")
-      .attr("y", 2)
-      .attr("dy", ".71em")
-      .style("text-anchor", "end")
-      .text("Weight");
-  svg.selectAll(".bar")
-      .data(data)
-    .enter().append("rect")
-      .attr("class", "bar")
-      .attr("x", function(d) { return x(d.topic); })
-      .attr("width", x.rangeBand())
-      .attr("y", function(d) { return y(d.weight); })
-      .attr("height", function(d) { return height - y(d.weight); })
-});
+  </div>
+{% endblock %}
+{% block footer_extra %}
+  <script>
+    $( function() {
 
-function type(d) {
-  d.weight = +d.weight;
-  return d;
-}
-</script>
+      $( "#dialog" ).dialog({
+        autoOpen: false,
+        appendTo: "#wrap > span",
+        hide: {
+          effect: "blind",
+          duration: 1000
+        }
+      });
+
+      function opendialog() {
+          $("#dialog").dialog("open");
+          $('div.ui-dialog').css({
+              position:'relative',
+              width:'100%',
+              height:'500px',
+              top:'0',
+              left:'0'
+          });
+          $("button.ui-dialog-titlebar-close")
+                  .detach()
+                  .appendTo('div.ui-dialog.ui-resizable').css('top','.7em');
+      }
+
+      $( "#opener" ).on( "click", function() {
+        opendialog();
+      });
+
+      opendialog();
+
+    });
+  </script>
+  <script>
+
+    var interval = Math.floor(1000 / 60 * 10);
+    var resizeTimer;
+    var wrapper = $('#form-inner-wrapper');
+
+    function wrapper_resize() {
+      wrapper.css('width', Math.max.apply(null, [270,parseInt(3*$(window).width()/4)]));
+    }
+
+    $(document).ready(function(){
+
+      window.addEventListener('resize', function (event) {
+        if (resizeTimer !== false) {
+          clearTimeout(resizeTimer);
+        }
+        resizeTimer = setTimeout(function () {
+          wrapper_resize();
+        }, interval);
+      });
+
+      wrapper_resize();
+
+    });
+  </script>
+  <script>
+    var margin = {top: 10, right: 0, bottom: 60, left: 40},
+      width = 600 - margin.left - margin.right,
+      height = 350 - margin.top - margin.bottom;
+    var x = d3.scale.ordinal()
+      .rangeRoundBands([0, width], .1);
+    var y = d3.scale.linear()
+      .range([height, 0]);
+    var xAxis = d3.svg.axis()
+      .scale(x)
+      .orient("bottom");
+    var yAxis = d3.svg.axis()
+      .scale(y)
+      .orient("left");
+    var svg = d3.select("bar-chart").append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'_topic_distribution_d'+doc_id+'.tsv') }}", type, function(error, data) {
+      x.domain(data.map(function(d) { return d.topic; }));
+      y.domain([0, d3.max(data, function(d) { return d.weight; })]);
+      svg.append("g")
+        .attr("class", "x axis")
+        .attr("transform", "translate(0," + height + ")")
+        .call(xAxis)
+        .selectAll("text")
+          .style("text-anchor", "end")
+          .attr("dx", "-1em")
+          .attr("dy", "-0.7em")
+          .attr("transform", "rotate(-90)" );
+      svg.append("g")
+        .attr("class", "y axis")
+        .call(yAxis)
+      .append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 2)
+        .attr("dy", ".71em")
+        .style("text-anchor", "end")
+        .text("Weight");
+      svg.selectAll(".bar")
+        .data(data)
+      .enter().append("rect")
+        .attr("class", "bar")
+        .attr("x", function(d) { return x(d.topic); })
+        .attr("width", x.rangeBand())
+        .attr("y", function(d) { return y(d.weight); })
+        .attr("height", function(d) { return height - y(d.weight); })
+        .on('click', function(d) {window.location.href = '/{{ iid }}/topic/' + d.topic.split(" ")[1];})
+    });
+
+    function type(d) {
+      d.weight = +d.weight;
+      return d;
+    }
+  </script>
+{% endblock %}
