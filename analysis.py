@@ -161,11 +161,12 @@ if __name__ == '__main__':
                 dists[doc_id, :] = topic_model.topic_distribution_for_document(doc_id)
 
             indices = pd.np.argsort(pd.np.sum(dists, axis=1))[-6:]
+            n_docs = indices.size
 
-            results = pd.np.empty((6, 5), dtype=object)
-            for i in range(6):
-                for j in range(5):
-                    i_unsetted = pd.np.array(list(range(i)) + list(range(i+1, 6)))
+            results = pd.np.empty((n_docs, n_docs - 1), dtype=object)
+            for i in range(n_docs):
+                for j in range(n_docs - 1):
+                    i_unsetted = pd.np.array(list(range(i)) + list(range(i+1, n_docs)))
                     results[i, j] = [
                         "Document " + str(i+1),
                         "Document " + str(i_unsetted[j]+1),
