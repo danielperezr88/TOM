@@ -1,6 +1,5 @@
 # coding: utf-8
 from os import path, urandom, getpid
-from sys import executable as pythonPath
 from binascii import hexlify
 import inspect
 
@@ -10,12 +9,9 @@ import requests as req
 
 from flask import Flask, render_template, redirect, url_for, g, abort
 from flask.ext.qrcode import QRcode
-
 import werkzeug.exceptions as ex
 
 import logging
-
-import subprocess
 
 __author__ = "Daniel Pérez"
 __email__ = "dperez@human-forecast.com"
@@ -68,7 +64,7 @@ app = Flask(__name__, static_folder='browser/static', template_folder='browser/t
 QRcode(app)
 
 MY_IP = req.get(generate_url('jsonip.com')).json()['ip']
-PORT = 88
+PORT = 80
 
 
 @app.route('/', methods=['GET'])
@@ -212,8 +208,5 @@ if __name__ == '__main__':
     logfilename = inspect.getfile(inspect.currentframe()) + ".log"
     logging.basicConfig(filename=logfilename, level=logging.INFO, format='%(asctime)s %(message)s')
     logging.info("Started")
-
-    #subprocess.Popen([pythonPath, path.join(dirname, "watcher.py")])
-    #subprocess.Popen([pythonPath, path.join(dirname, "analysis.py")])
 
     run()
