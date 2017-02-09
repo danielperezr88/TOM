@@ -48,7 +48,7 @@ def request(url, method="GET", params={}, default=None):
 
 
 def lookup_bucket(cli, prefix=None, suffix=None):
-    if suffix is not None and prefix is not None:
+    if suffix is not None or prefix is not None:
         for bucket in cli.list_buckets():
             if suffix is None:
                 if bucket.name.startswith(prefix):
