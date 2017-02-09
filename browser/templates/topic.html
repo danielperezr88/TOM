@@ -46,7 +46,15 @@
         <div id="form-inner-wrapper">
           <div id="header">
             <h4>Details about topic {{ topic_id }}</h4>
-            Overall frequency : {{ frequency }}%
+            <p>Overall frequency : {{ frequency }}%</p>
+            <p>
+              Search term :
+                <select name="term_select" onChange="window.location.href='/'+this.value+'/topic/{{ topic_id }}'">
+                {% for idx, term in inputs.items() %}
+                  <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
+                {% endfor %}
+              </select>
+            </p>
           </div>
           <div id="wrap">
             <h2>Most relevant words</h2>

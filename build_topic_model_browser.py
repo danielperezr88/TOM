@@ -13,8 +13,14 @@ import werkzeug.exceptions as ex
 
 import logging
 
+from utils import BucketedFileRefresher
+from importlib import reload
+
 __author__ = "Daniel Pérez"
 __email__ = "dperez@human-forecast.com"
+
+CONFIG_BUCKET = 'config'
+BFR = BucketedFileRefresher()
 
 
 class VoidOrNonexistentTerm(ex.HTTPException):
@@ -59,6 +65,25 @@ def run():
     app.secret_key = hexlify(urandom(24))
     app.run(**flask_options)
 
+
+def refresh_and_retrieve_module(filename, bucket=None):
+
+    try:
+
+        filepath = path.join(path.dirname(path.realpath(__file__)), filename)
+        if bucket is not None:
+            BFR(bucket, filename, filepath)
+
+        module = __import__(path.splitext(filename)[0])
+        return reload(module)
+
+    except BaseException as ex:
+
+        msg = "Unable to access file \"%s\": Unreachable or unexistent bucket and file." % (filename,)
+        logging.error(msg)
+        raise ImportError(msg)
+
+
 # Flask Web server
 app = Flask(__name__, static_folder='browser/static', template_folder='browser/templates')
 QRcode(app)
@@ -79,7 +104,12 @@ def index():
 
 @app.route('/<iid>/index', methods=['GET'])
 def iid_index(iid):
-    return render_template('index.html', iid=(iid or 0), about_url=generate_url(MY_IP, port=PORT, directory=url_for('about')[1:]))
+
+    input_dir = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET).inputs
+
+    return render_template('index.html', inputs=input_dir, iid=(iid or 0),
+                           about_url=generate_url(MY_IP, port=PORT, directory=url_for('about')[1:])
+                           )
 
 
 @app.route('/<iid>/topic_cloud', methods=['GET'])
@@ -87,8 +117,10 @@ def topic_cloud(iid):
 
     g.d3version = 'v3'
     topic_model, corpus = load_pickled_models(iid)
+    input_dir = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET).inputs
 
     return render_template('topic_cloud.html',
+                           inputs=input_dir,
                            iid=iid,
                            topic_ids=range(topic_model.nb_topics),
                            doc_ids=range(corpus.size))
@@ -98,6 +130,7 @@ def topic_cloud(iid):
 def vocabulary(iid):
 
     topic_model, corpus = load_pickled_models(iid)
+    input_dir = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET).inputs
 
     word_list = []
     for i in range(len(corpus.vocabulary)):
@@ -110,6 +143,7 @@ def vocabulary(iid):
             sub_vocabulary.append(word_list[l])
         splitted_vocabulary.append(sub_vocabulary)
     return render_template('vocabulary.html',
+                           inputs=input_dir,
                            iid=iid,
                            topic_ids=range(topic_model.nb_topics),
                            doc_ids=range(corpus.size),
@@ -122,6 +156,7 @@ def topic_details(iid, tid):
 
     g.d3version = 'v3'
     topic_model, corpus = load_pickled_models(iid)
+    input_dir = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET).inputs
 
     topic_associations = topic_model.documents_per_topic()
     ids = topic_associations[int(tid)]
@@ -132,6 +167,7 @@ def topic_details(iid, tid):
                           ', '.join(corpus.author(document_id)),
                           corpus.date(document_id), document_id))
     return render_template('topic.html',
+                           inputs=input_dir,
                            iid=iid,
                            topic_id=tid,
                            frequency=round(topic_model.topic_frequency(int(tid))*100, 2),
@@ -145,6 +181,7 @@ def document_details(iid, did):
 
     g.d3version = 'v3'
     topic_model, corpus = load_pickled_models(iid)
+    input_dir = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET).inputs
 
     vector = topic_model.corpus.vector_for_document(int(did))
     word_list = []
@@ -158,6 +195,7 @@ def document_details(iid, did):
                           ', '.join(corpus.author(another_doc[0])),
                           corpus.date(another_doc[0]), another_doc[0], round(another_doc[1], 3)))
     return render_template('document.html',
+                           inputs=input_dir,
                            iid=iid,
                            doc_id=did,
                            url=corpus.data_frame.iloc[int(did)]['url'],
@@ -175,6 +213,7 @@ def word_details(iid, wid):
 
     g.d3version = 'v3'
     topic_model, corpus = load_pickled_models(iid)
+    input_dir = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET).inputs
 
     documents = []
     for document_id in corpus.docs_for_word(int(wid)):
@@ -182,6 +221,7 @@ def word_details(iid, wid):
                           ', '.join(corpus.author(document_id)),
                           corpus.date(document_id), document_id))
     return render_template('word.html',
+                           inputs=input_dir,
                            iid=iid,
                            word_id=wid,
                            word=topic_model.corpus.word_for_id(int(wid)),

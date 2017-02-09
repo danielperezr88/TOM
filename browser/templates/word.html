@@ -28,7 +28,15 @@
         <div id="form-inner-wrapper">
           <div id="header">
             <h4>Details about word {{ word_id }}</h4>
-            Word: {{ word }}
+            <p>Word: {{ word }}</p>
+            <p>
+              Search term :
+                <select name="term_select" onChange="window.location.href='/'+this.value+'/word/{{ word_id }}'">
+                {% for idx, term in inputs.items() %}
+                  <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
+                {% endfor %}
+              </select>
+            </p>
           </div>
           <div id="wrap">
             <div id="left_column">

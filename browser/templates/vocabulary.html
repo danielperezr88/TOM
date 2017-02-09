@@ -6,7 +6,14 @@
         <div id="form-inner-wrapper">
           <div id="header">
             <h4>Vocabulary</h4>
-            Number of words : {{ vocabulary_size }}
+            <p>
+              Search term :
+                <select name="term_select" onChange="window.location.href='/'+this.value+'/vocabulary'">
+                {% for idx, term in inputs.items() %}
+                  <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
+                {% endfor %}
+              </select>
+            </p>
           </div>
           <div id="wrap">
             {% for vocabulary in splitted_vocabulary %}

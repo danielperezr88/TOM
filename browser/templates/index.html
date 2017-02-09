@@ -41,7 +41,14 @@
         <div id="form-inner-wrapper">
           <div id="header">
             <h4>Topic based document similarity</h4>
-            Search term :
+            <p>
+              Search term :
+                <select name="term_select" onChange="window.location.href='/'+this.value+'/index'">
+                {% for idx, term in inputs.items() %}
+                  <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
+                {% endfor %}
+              </select>
+            </p>
           </div>
             <h4></h4>
         </div>
@@ -63,26 +70,6 @@
         "#da4480", "#5ab449", "#7f5acd", "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
         "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
       ];
-
-      /*var cncpts = ['Concept 1', 'Concept 2', 'Concept 3', 'Concept 4', 'Concept 5', 'Concept 6'];
-
-      var data = [
-          [cncpts[0],cncpts[1],150],[cncpts[0],cncpts[2],100],[cncpts[0],cncpts[3],300],[cncpts[0],cncpts[4],500],[cncpts[0],cncpts[5],450],
-          [cncpts[1],cncpts[0],150],[cncpts[1],cncpts[2],250],[cncpts[1],cncpts[3],250],[cncpts[1],cncpts[4],800],[cncpts[1],cncpts[5],300],
-          [cncpts[2],cncpts[0],100],[cncpts[2],cncpts[1],250],[cncpts[2],cncpts[3],150],[cncpts[2],cncpts[4],250],[cncpts[2],cncpts[5],150],
-          [cncpts[3],cncpts[0],300],[cncpts[3],cncpts[1],250],[cncpts[3],cncpts[2],150],[cncpts[3],cncpts[4],400],[cncpts[3],cncpts[5],100],
-          [cncpts[4],cncpts[0],500],[cncpts[4],cncpts[1],800],[cncpts[4],cncpts[2],250],[cncpts[4],cncpts[3],400],[cncpts[4],cncpts[5],300],
-          [cncpts[5],cncpts[0],450],[cncpts[5],cncpts[1],300],[cncpts[5],cncpts[2],150],[cncpts[5],cncpts[3],100],[cncpts[5],cncpts[4],300]
-      ];
-
-      var sortOrder =[
-        cncpts[0],
-        cncpts[1],
-        cncpts[2],
-        cncpts[3],
-        cncpts[4],
-        cncpts[5]
-      ];*/
 
       var interval = Math.floor(1000 / 60 * 10);
       var resizeTimer;

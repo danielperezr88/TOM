@@ -55,7 +55,15 @@
       <div id="form-inner-wrapper">
         <div id="header">
           <h4>Details about article {{ doc_id }}</h4>
-          Authors: {{ authors }} - Date: {{ year }}
+          <p>Authors: {{ authors }} - Date: {{ year }}</p>
+          <p>
+            Search term :
+              <select name="term_select" onChange="window.location.href='/'+this.value+'/document/{{ doc_id }}'">
+              {% for idx, term in inputs.items() %}
+                <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
+              {% endfor %}
+            </select>
+          </p>
         </div>
         <div id="wrap">
           <h2>Document preview</h2>
