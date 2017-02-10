@@ -87,7 +87,7 @@
 
               if (error) throw error;
 
-              var last = d3.select('#form-inner-wrapper')._groups[0][0].firstChild;
+              var last = d3.select('#form-inner-wrapper')._groups[0][0].lastChild;
               if (last != null) {
                   last.remove();
               }
@@ -107,7 +107,13 @@
                           return colors[d];
                       });
 
-              var svg = d3.select('#form-inner-wrapper').append("svg").attr("height", height).attr("width", width);
+              var svg = d3.select('#form-inner-wrapper')
+                      .classed('svg-container', true)
+                      .append("svg")
+                      .classed("svg-content-responsive", true)
+                      .attr("viewBox", "0 0 " + width + " " + height)
+                      .attr("preserveAspectRatio", "xMinYMin meet");
+                      //.attr("height", height).attr("width", width);
 
               svg.append("g")
                       .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")

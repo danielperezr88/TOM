@@ -32,10 +32,10 @@ def save_pid():
 def generateDateColumn(row):
     for col in ['datePublished','dateModified','dateCreated']:
         try:
-            return parser.parse(row[col]).date().strftime("%Y%m%d")
+            return parser.parse(row[col]).date().strftime("%Y-%m-%d")
         except BaseException as ex:
             continue
-    return parser.datetime.datetime.today().date()
+    return parser.datetime.datetime.today().date().strftime("%Y-%m-%d")
 
 
 def custom_top_words(topic_model, topic_id, num_words=20):
@@ -131,8 +131,10 @@ if __name__ == '__main__':
                                                    path.join(browser_data, input_ +
                                                              '_affiliation_repartition' + str(topic_id) + '.tsv'))
                 evolution = []
-                for i in range(2012, 2016):
-                    evolution.append((i, topic_model.topic_frequency(topic_id, date=i)))
+                today = parser.datetime.datetime.today().date()
+                for i in range(14):
+                    d = today - parser.datetime.timedelta(weeks=2)+parser.datetime.timedelta(days=i)
+                    evolution.append((d.strftime("%Y-%m-%d"), topic_model.topic_frequency(topic_id, date=d.strftime("%Y-%m-%d"))))
                 utils.save_topic_evolution(evolution, path.join(browser_data, input_+'_frequency' +
                                                                 str(topic_id) + '.tsv'))
 

@@ -164,7 +164,7 @@ def topic_details(iid, tid):
     documents = []
     for document_id in ids:
         documents.append((str(corpus.title(document_id)).capitalize(),
-                          ', '.join(corpus.author(document_id)),
+                          corpus.data_frame.iloc[int(document_id)]['url'].split('/')[2],
                           corpus.date(document_id), document_id))
     return render_template('topic.html',
                            inputs=input_dir,
@@ -203,7 +203,7 @@ def document_details(iid, did):
                            topic_ids=range(topic_model.nb_topics),
                            doc_ids=range(corpus.size),
                            documents=documents,
-                           authors=', '.join(corpus.author(int(did))),
+                           authors=corpus.data_frame.iloc[int(did)]['url'].split('/')[2],
                            year=corpus.date(int(did)),
                            short_content=corpus.title(int(did)))
 

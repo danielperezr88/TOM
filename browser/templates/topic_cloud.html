@@ -24,7 +24,7 @@
         <div id="form-inner-wrapper">
           <div id="header">
             <h4>Topic cloud</h4>
-            <p>Each bubble represents a topic; double-click one to get more details</p>
+            <!--<p>Each bubble represents a topic; double-click one to get more details</p>-->
             <p>
               Search term :
                 <select name="term_select" onChange="window.location.href='/'+this.value+'/topic_cloud'">
@@ -34,7 +34,6 @@
               </select>
             </p>
           </div>
-          <svg></svg>
         </div>
       </div>
     </div>
@@ -46,9 +45,9 @@
     var resizeTimer;
     var wrapper = $('#form-inner-wrapper');
 
-    function wrapper_resize() {
+    /*function wrapper_resize() {
       wrapper.css('width', Math.max.apply(null, [270,parseInt(3*$(window).width()/4)]));
-    }
+    }*/
 
     function render() {
         /*var width = window.innerWidth
@@ -58,7 +57,7 @@
                 || document.documentElement.clientHeight
                 || document.body.clientHeight;*/
         var width = parseInt($('#form-inner-wrapper').css('width'));
-        var height = parseInt($('#form-inner-wrapper').css('height')) - 124;
+        var height = parseInt($('#form-inner-wrapper').css('height'));
         /*height = height - 80;*/
         var color = d3.scale.category20();
 
@@ -67,11 +66,14 @@
                 .linkDistance(100)
                 .size([width, height]);
 
-        var svg = d3.select("#form-inner-wrapper > svg")
-                .attr("width", width)
-                .attr("height", height)
+        var svg = d3.select("#form-inner-wrapper")
+                .classed('svg-container', true)
+                .append('svg')
+                .classed("svg-content-responsive", true)
+                //.attr("width", function(){return parseInt($('#form-inner-wrapper').css('width'))})
+                //.attr("height", function(){return parseInt($('#form-inner-wrapper').css('height'))})
                 .attr("viewBox", "0 0 " + width + " " + height)
-                .attr("preserveAspectRatio", "xMidYMid meet")
+                .attr("preserveAspectRatio", "xMinYMin meet")
                 .attr("pointer-events", "all");
 
         d3.json("{{ url_for('static', filename = 'data/input'+iid+'_topic_cloud.json') }}", function (error, cloud) {
@@ -95,7 +97,8 @@
                     .attr("r", function (d) {
                         return d.frequency * 500;
                     })
-                    .style("fill", "#bbb")
+                    .style("fill", "rgb(76, 116, 134)")
+                    .style('cursor','pointer')
                     .call(force.drag)
                     .on("dblclick", show_details)
                     .on("mouseover", focus_topic)
@@ -111,11 +114,11 @@
             }
 
             function focus_topic() {
-                d3.select(this).style("fill", "#ddd");
+                d3.select(this).style("fill", "#34aad8");
             }
 
             function unfocus_topic() {
-                d3.select(this).style("fill", "#bbb");
+                d3.select(this).style("fill", "rgb(76, 116, 134)");
             }
 
             var texts = svg.selectAll("text.label")
@@ -159,9 +162,27 @@
                         });
             });
         });
+
+        window.addEventListener('resize', function (event) {
+          if (resizeTimer !== false) {
+            clearTimeout(resizeTimer);
+          }
+
+          var width = parseInt($('#form-inner-wrapper').css('width'));
+          var height = parseInt($('#form-inner-wrapper').css('height'));
+
+          force.size([width, height]).resume();
+
+          resizeTimer = setTimeout(function () {
+            svg.attr("viewBox", "0 0 " + width + " " + height);
+          }, interval);
+        });
+
     };
 
-    $(document).ready(function(){
+    render();
+
+    /*$(document).ready(function(){
 
       window.addEventListener('resize', function (event) {
         if (resizeTimer !== false) {
@@ -169,14 +190,12 @@
         }
         resizeTimer = setTimeout(function () {
           wrapper_resize();
-          render();
         }, interval);
       });
 
       wrapper_resize();
-      render();
 
-    });
+    });*/
 
   </script>
 {% endblock %}

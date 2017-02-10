@@ -24,7 +24,7 @@
 
     div.ui-dialog.ui-resizable {
         background-color: white;
-        border-width: 2px;
+        border-width: 1px;
         border-color: rgb(24, 30, 37);
         padding: 0px 0.2em 0.2em 0.1em;
     }
@@ -54,8 +54,7 @@
     <div id="form-outer-wrapper">
       <div id="form-inner-wrapper">
         <div id="header">
-          <h4>Details about article {{ doc_id }}</h4>
-          <p>Authors: {{ authors }} - Date: {{ year }}</p>
+          <h4>Article {{ doc_id }} ({{ authors }}, {{ year }})</h4>
           <p>
             Search term :
               <select name="term_select" onChange="window.location.href='/'+this.value+'/document/{{ doc_id }}'">
@@ -95,9 +94,8 @@
             <ul>
               {% for doc in documents %}
                 <li>
-                  <a href="../document/{{ doc[3] }}">{{ doc[0] }}</a> ({{ doc[4] }})
-                  <br>
-                  {{ doc[1] }}
+                  <a href="../document/{{ doc[3] }}">{{ doc[0] }}</a>
+                    {% if doc[1].strip() not in ['nan',''] %} - {{ doc[1] }} -{% endif %} ({{ doc[4] }})
                   <br>
                   {{ doc[2] }}
                 </li>
@@ -146,7 +144,7 @@
   </script>
   <script>
 
-    var interval = Math.floor(1000 / 60 * 10);
+    /*var interval = Math.floor(1000 / 60 * 10);
     var resizeTimer;
     var wrapper = $('#form-inner-wrapper');
 
@@ -167,10 +165,10 @@
 
       wrapper_resize();
 
-    });
+    });*/
   </script>
   <script>
-    var margin = {top: 10, right: 0, bottom: 60, left: 40},
+    var margin = {top: 10, right: 0, bottom: 85, left: 45},
       width = 600 - margin.left - margin.right,
       height = 350 - margin.top - margin.bottom;
     var x = d3.scale.ordinal()
@@ -217,7 +215,8 @@
         .attr("width", x.rangeBand())
         .attr("y", function(d) { return y(d.weight); })
         .attr("height", function(d) { return height - y(d.weight); })
-        .on('click', function(d) {window.location.href = '/{{ iid }}/topic/' + d.topic.split(" ")[1];})
+        .on('dblclick', function(d) {window.location.href = '/{{ iid }}/topic/' + d.topic.split(" ")[1];})
+        .style('cursor','pointer')
     });
 
     function type(d) {

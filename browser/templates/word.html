@@ -27,8 +27,7 @@
       <div id="form-outer-wrapper">
         <div id="form-inner-wrapper">
           <div id="header">
-            <h4>Details about word {{ word_id }}</h4>
-            <p>Word: {{ word }}</p>
+            <h4>Details about word {{ word_id }} ({{ word }})</h4>
             <p>
               Search term :
                 <select name="term_select" onChange="window.location.href='/'+this.value+'/word/{{ word_id }}'">
@@ -65,7 +64,7 @@
 {% block footer_extra %}
   <script>
 
-    var interval = Math.floor(1000 / 60 * 10);
+    /*var interval = Math.floor(1000 / 60 * 10);
     var resizeTimer;
     var wrapper = $('#form-inner-wrapper');
 
@@ -86,10 +85,10 @@
 
       wrapper_resize();
 
-    });
+    });*/
   </script>
   <script>
-    var margin = {top: 10, right: 0, bottom: 60, left: 40},
+    var margin = {top: 10, right: 0, bottom: 85, left: 50},
       width = 600 - margin.left - margin.right,
       height = 350 - margin.top - margin.bottom;
     var x = d3.scale.ordinal()
@@ -143,6 +142,8 @@
         .attr("width", x.rangeBand())
         .attr("y", function(d) { return y(d.weight); })
         .attr("height", function(d) { return height - y(d.weight); })
+        .on('dblclick', function(d) {window.location.href = '/{{ iid }}/topic/' + d.topic.split(" ")[1];})
+        .style('cursor','pointer')
     });
 
     function type(d) {
