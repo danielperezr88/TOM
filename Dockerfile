@@ -8,12 +8,12 @@ RUN apt-get update && apt-get install -y \
 RUN mkdir -p /var/log/supervisor
 
 # Download Observatory
-RUN curl -fSL "https://github.com/danielperezr88/TOM/archive/v0.5.tar.gz" -o TOM.tar.gz && \
+RUN curl -fSL "https://github.com/danielperezr88/TOM/archive/v1.0.tar.gz" -o TOM.tar.gz && \
 	tar -xf TOM.tar.gz -C . && \
 	mkdir /app && \
-	mv TOM-0.5/* /app/ && \
+	mv TOM-1.0/* /app/ && \
 	rm TOM.tar.gz && \
-	rm -rf TOM-0.5 && \
+	rm -rf TOM-1.0 && \
 	mv /app/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 	
 RUN curl -sSO https://dl.google.com/cloudagents/install-logging-agent.sh -o install-logging-agent.sh && \
