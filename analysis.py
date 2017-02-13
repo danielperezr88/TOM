@@ -153,8 +153,8 @@ if __name__ == '__main__':
             topic_associations = topic_model.documents_per_topic()
 
             # Export per-topic author network
-            for topic_id in range(len(topic_associations)):
-                utils.save_json_object(corpus.collaboration_network(topic_associations[topic_id]), path.join(
+            for topic_id, assoc in topic_associations.items():
+                utils.save_json_object(corpus.collaboration_network(assoc), path.join(
                     browser_data, input_ + '_author_network' + str(topic_id) + '.json'))
 
             # Retrieve 6 topic-wise more related documents
