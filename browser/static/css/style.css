@@ -663,7 +663,7 @@ button{
     text-align: left;
     position: fixed;
     z-index: 500;
-    width: 40%;
+    width: 650px;
     height: 1.2em;
     border-width: 0px 0px 1px 1px;
     line-height: 11px;
@@ -683,6 +683,84 @@ button{
     float: right;
     margin: 0px;
     display: inline-block;
+}
+
+#breadcrumbs {
+  width: 60%;
+  position: fixed;
+  font-size: 0.8em;
+  padding: 0.3em 0 0 0.5em;
+  font-weight: 600;
+  color: rgb(24,30,37);
+  z-index: 500;
+  left: 0;
+}
+#breadcrumbs > span:not(:last-child) {
+  padding-right: 0.5em;
+}
+#breadcrumbs > span:not(:first-child) {
+  padding-left: 0.5em;
+}
+#breadcrumbs > span:hover {
+  color: rgb(63,148,202);
+}
+#breadcrumbs > span {
+  cursor: pointer;
+}
+
+@media screen and (max-width: 900px) and (min-width: 551px){
+  #header {
+    width: auto;
+    left: 0;
+    border-width: 0px 0px 1px 0px;
+    border-radius: 0px;
+  }
+}
+@media screen and (max-width: 650px){
+  #header {
+    font-size: 0.8em;
+    height: 1em;
+    padding: 3px 3px 9px 3px;
+  }
+}
+@media screen and (max-width: 900px) and (min-width: 651px){
+  #breadcrumbs {
+    margin-top: 38.2px;
+  }
+}
+@media screen and (max-width: 650px) and (min-width: 551px){
+  #breadcrumbs {
+    margin-top: 25.8px;
+  }
+}
+@media screen and (max-width: 550px){
+  #header {
+    width: 260px;
+  }
+  #header > h4 {
+    display: none;
+  }
+  #header > p {
+    left: 0;
+    right: 0;
+    margin: auto;
+    position: absolute;
+    width: 250px;
+  }
+  #breadcrumbs {
+    margin-top: 0px;
+  }
+}
+@media screen and (max-width: 490px){
+  #header {
+    width: auto;
+    left: 0;
+    border-width: 0px 0px 1px 0px;
+    border-radius: 0px;
+  }
+  #breadcrumbs {
+    margin-top: 25.8px;
+  }
 }
 
 #wrap {

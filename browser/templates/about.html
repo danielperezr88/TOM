@@ -1,17 +1,14 @@
 {% extends "index.html" %}
+{% block breadcrumbs %}
+  <span onclick="window.location.href='/about'">about us</span>
+{% endblock %}
 {% block body %}
-  <div id="content">
-    <div id="form-outer-wrapper">
-      <div id="form-inner-wrapper">
-        <h3>About us:</h3>
-        <p>This visualization is offered by Human-Forecast ™.</p>
-        <!--<br/>-->
-        <p>Our primary objective is to help companies leveraging its processes by updating to the new paradigm of data-driven decision making.</p>
-        <!--<br/>-->
-        <p>We do this by developing big data/machine learning solutions for process automation, data introspection and knowledge management.</p>
-      </div>
-    </div>
-  </div>
+  <h3>About us:</h3>
+  <p>This visualization is offered by Human-Forecast ™.</p>
+  <!--<br/>-->
+  <p>Our primary objective is to help companies leveraging its processes by updating to the new paradigm of data-driven decision making.</p>
+  <!--<br/>-->
+  <p>We do this by developing big data/machine learning solutions for process automation, data introspection and knowledge management.</p>
 {% endblock %}
 {% block footer_extra %}
   <script>

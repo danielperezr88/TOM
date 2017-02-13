@@ -1,34 +1,32 @@
 {% extends "index.html" %}
 {% block header_extra %}{% endblock %}
+{% block breadcrumbs %}
+  <span onclick="window.location.href='/{{ iid }}/index'">{{ inputs[iid|int] }}</span>
+  ><span onclick="window.location.href='/{{ iid }}/vocabulary'">vocabulary</span>
+{% endblock %}
 {% block body %}
-    <div id="content">
-      <div id="form-outer-wrapper">
-        <div id="form-inner-wrapper">
-          <div id="header">
-            <h4>Vocabulary</h4>
-            <p>
-              Search term :
-                <select name="term_select" onChange="window.location.href='/'+this.value+'/vocabulary'">
-                {% for idx, term in inputs.items() %}
-                  <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
-                {% endfor %}
-              </select>
-            </p>
-          </div>
-          <div id="wrap">
-            {% for vocabulary in splitted_vocabulary %}
-              <div id="five_columns">
-                <ul>
-                  {% for indexed_word in vocabulary %}
-                    <li><a href="word/{{ indexed_word[0] }}">{{ indexed_word[1] }}</a></li>
-                  {% endfor %}
-                </ul>
-              </div>
-            {% endfor %}
-          </div>
-        </div>
+  <div id="header">
+    <h4>Vocabulary</h4>
+    <p>
+      Search term :
+        <select name="term_select" onChange="window.location.href='/'+this.value+'/vocabulary'">
+        {% for idx, term in inputs.items() %}
+          <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
+        {% endfor %}
+      </select>
+    </p>
+  </div>
+  <div id="wrap">
+    {% for vocabulary in splitted_vocabulary %}
+      <div id="five_columns">
+        <ul>
+          {% for indexed_word in vocabulary %}
+            <li><a href="word/{{ indexed_word[0] }}">{{ indexed_word[1] }}</a></li>
+          {% endfor %}
+        </ul>
       </div>
-    </div>
+    {% endfor %}
+  </div>
 {% endblock %}
 {% block footer_extra %}
   <script>

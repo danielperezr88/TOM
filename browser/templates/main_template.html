@@ -41,6 +41,10 @@
                 window_timeout = 0,
                 menu_timeout = 0;
 
+            var max_width = Math.max.apply(null, menu.children('li').map(function(){
+                return $(this).outerWidth(true);
+            }).get());
+
             function maybeRestorePadding(){
 
                 var widths = [];
@@ -87,7 +91,7 @@
 
             function contract() {
                 var w = 0,
-                    outerWidth = parent.width() - smw - 230 - parseInt($('#header-nav').css('padding-left'));
+                    outerWidth = parent.width() - smw - 330 - parseInt($('#header-nav').css('padding-left'));
                 for (var i = 0; i < menu.children("li").size(); i++) {
                     w += menu.children("li").eq(i).outerWidth(true);
                     if (w > outerWidth) {
@@ -99,7 +103,7 @@
                             'opacity': 1
                         }, 300);
                         if(parseInt(subMenu.css('left'))<0) {
-                            subMenu.css('left', -parseInt(subMenu.outerWidth() + 22) + "px");
+                            subMenu.css('left', -parseInt(max_width + 90) + "px");
                         }else{
                             relocateMenuLink((parseInt(subMenu.outerWidth()) - 62) / 2);
                         }
@@ -114,7 +118,7 @@
 
             function expand() {
                 var w = 0,
-                    outerWidth = parent.width() - smw - 230 - parseInt($('#header-nav').css('padding-left'));
+                    outerWidth = parent.width() - smw - 330 - parseInt($('#header-nav').css('padding-left'));
                 menu.children("li").each(function () {
                     w += $(this).outerWidth(true);
                     return w;
@@ -202,6 +206,35 @@
                 }
             });
         });
+    </script>
+    <script>
+      function hasScrollBars(domNode, dimension, computedStyles) {
+        dimension = dimension.toUpperCase()
+        if(dimension === 'Y') {
+          var length = 'Height'
+        } else {
+          var length = 'Width'
+        }
+
+        var scrollLength = 'scroll'+length
+        var clientLength = 'client'+length
+        var overflowDimension = 'overflow'+dimension
+
+        var hasVScroll = domNode[scrollLength] > domNode[clientLength]
+
+
+        // Check the overflow and overflowY properties for "auto" and "visible" values
+        var cStyle = computedStyles || getComputedStyle(domNode)
+        return hasVScroll && (cStyle[overflowDimension] == "visible"
+                             || cStyle[overflowDimension] == "auto"
+                             )
+              || cStyle[overflowDimension] == "scroll"
+      }
+      $(document).ready(function () {
+        if(hasScrollBars(document.getElementById('content'),'Y') == false){
+          $('#header').css('right','0px');
+        }
+      })
     </script>
     {% block header_extra %}{% endblock %}
 </head>

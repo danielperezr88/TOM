@@ -4,7 +4,7 @@
     <img src="{{ url_for('static', filename='img/cemex-ventures-logo.png')}}" style="float: right;height: 46px;padding: 21px 21px 0 0;">
     <ul id="header-nav">
       <li>
-        <a href="/{{ iid }}/index" id="head-main">
+        <a href="/{{ iid or '0' }}/index" id="head-main">
           <h1>Concept Insight Visualizer</h1>
           <p>for keyword exploration</p>
         </a>
@@ -35,10 +35,16 @@
       {% endif %}
     {% endwith %}
   </div>
-  {% block body %}
-    <div id="content">
-      <div id="form-outer-wrapper">
-        <div id="form-inner-wrapper">
+  <div id="content">
+    <div id="form-outer-wrapper">
+      <div id="form-inner-wrapper">
+        <div id="breadcrumbs">
+          {% block breadcrumbs %}
+            <span onclick="window.location.href='/{{ iid }}/index'">{{ inputs[iid|int] }}</span>
+            ><span onclick="window.location.href='/{{ iid }}/index'">index</span>
+          {% endblock %}
+        </div>
+        {% block body %}
           <div id="header">
             <h4>Topic based document similarity</h4>
             <p>
@@ -51,11 +57,11 @@
             </p>
           </div>
             <h4></h4>
-        </div>
+        {% endblock %}
       </div>
     </div>
+  </div>
     <!--<div id="qr-container"><aside>What&rsquo;s this?</aside><img src="{{ qrcode(about_url) }}"></div>-->
-  {% endblock %}
   {% block footer_extra %}
     <script type="text/javascript" charset="utf-8">
 

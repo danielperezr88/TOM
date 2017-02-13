@@ -49,61 +49,59 @@
     }
   </style>
 {% endblock %}
+{% block breadcrumbs %}
+  <span onclick="window.location.href='/{{ iid }}/index'">{{ inputs[iid|int] }}</span>
+  ><span onclick="window.location.href='/{{ iid }}/document/{{ doc_id }}'">document #{{ doc_id }}</span>
+{% endblock %}
 {% block body %}
-  <div id="content">
-    <div id="form-outer-wrapper">
-      <div id="form-inner-wrapper">
-        <div id="header">
-          <h4>Article {{ doc_id }} ({{ authors }}, {{ year }})</h4>
-          <p>
-            Search term :
-              <select name="term_select" onChange="window.location.href='/'+this.value+'/document/{{ doc_id }}'">
-              {% for idx, term in inputs.items() %}
-                <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
-              {% endfor %}
-            </select>
-          </p>
-        </div>
-        <div id="wrap">
-          <h2>Document preview</h2>
-          <button id="opener"><i class="fa fa-chevron-down" aria-hidden="true"></i></button>
-          <span></span>
-          <div id="dialog" style="width:80%;height:80%;">
-            <iframe src="{{ url }}" style="width:100%;height:100%;border-width:0;"></iframe>
-          </div>
-        </div>
-        <div id="wrap">
-          <div id="left_column">
-            <h2>Topic repartition</h2>
-            <bar-chart></bar-chart>
-          </div>
-          <div id="right_column">
-            <h2>Vector representation</h2>
-            <ul>
-              {% for weighted_word in words %}
-                {% if weighted_word[1] > 0 %}
-                  <li><strong><a href="../word/{{ weighted_word[2] }}">{{ weighted_word[0] }}</a></strong> ({{ weighted_word[1] }})</li>
-                {% endif %}
-              {% endfor %}
-            </ul>
-          </div>
-        </div>
-        <div id="wrap">
-          <div id="left_column">
-            <h2>Similar documents (top 5)</h2>
-            <ul>
-              {% for doc in documents %}
-                <li>
-                  <a href="../document/{{ doc[3] }}">{{ doc[0] }}</a>
-                    {% if doc[1].strip() not in ['nan',''] %} - {{ doc[1] }} -{% endif %} ({{ doc[4] }})
-                  <br>
-                  {{ doc[2] }}
-                </li>
-              {% endfor %}
-            </ul>
-          </div>
-        </div>
-      </div>
+  <div id="header">
+    <h4>Article {{ doc_id }} ({{ authors }}, {{ year }})</h4>
+    <p>
+      Search term :
+        <select name="term_select" onChange="window.location.href='/'+this.value+'/document/{{ doc_id }}'">
+        {% for idx, term in inputs.items() %}
+          <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
+        {% endfor %}
+      </select>
+    </p>
+  </div>
+  <div id="wrap">
+    <h2>Document preview</h2>
+    <button id="opener"><i class="fa fa-chevron-down" aria-hidden="true"></i></button>
+    <span></span>
+    <div id="dialog" style="width:80%;height:80%;">
+      <iframe src="{{ url }}" style="width:100%;height:100%;border-width:0;"></iframe>
+    </div>
+  </div>
+  <div id="wrap">
+    <div id="left_column">
+      <h2>Topic repartition</h2>
+      <bar-chart></bar-chart>
+    </div>
+    <div id="right_column">
+      <h2>Vector representation</h2>
+      <ul>
+        {% for weighted_word in words %}
+          {% if weighted_word[1] > 0 %}
+            <li><strong><a href="../word/{{ weighted_word[2] }}">{{ weighted_word[0] }}</a></strong> ({{ weighted_word[1] }})</li>
+          {% endif %}
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div id="wrap">
+    <div id="left_column">
+      <h2>Similar documents (top 5)</h2>
+      <ul>
+        {% for doc in documents %}
+          <li>
+            <a href="../document/{{ doc[3] }}">{{ doc[0] }}</a>
+              {% if doc[1].strip() not in ['nan',''] %} - {{ doc[1] }} -{% endif %} ({{ doc[4] }})
+            <br>
+            {{ doc[2] }}
+          </li>
+        {% endfor %}
+      </ul>
     </div>
   </div>
 {% endblock %}

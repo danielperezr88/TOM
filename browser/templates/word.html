@@ -22,44 +22,42 @@
   }
 </style>
 {% endblock %}
+{% block breadcrumbs %}
+  <span onclick="window.location.href='/{{ iid }}/index'">{{ inputs[iid|int] }}</span>
+  ><span onclick="window.location.href='/{{ iid }}/word/{{ word_id }}'">word #{{ word_id }}</span>
+{% endblock %}
 {% block body %}
-    <div id="content">
-      <div id="form-outer-wrapper">
-        <div id="form-inner-wrapper">
-          <div id="header">
-            <h4>Details about word {{ word_id }} ({{ word }})</h4>
-            <p>
-              Search term :
-                <select name="term_select" onChange="window.location.href='/'+this.value+'/word/{{ word_id }}'">
-                {% for idx, term in inputs.items() %}
-                  <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
-                {% endfor %}
-              </select>
-            </p>
-          </div>
-          <div id="wrap">
-            <div id="left_column">
-              <h2>Topic repartition</h2>
-              <bar-chart></bar-chart>
-            </div>
-          <div id="right_column">
-            <h2>Related documents ({{documents|length}})</h2>
-            <ul>
-              {% for doc in documents %}
-                <li>
-                  <strong><a href="../document/{{ doc[3] }}">{{ doc[0] }}</a></strong>
-                  <br>
-                  {{ doc[1] }}
-                  <br>
-                  <i>EGC {{ doc[2] }}</i>
-                </li>
-              {% endfor %}
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
+  <div id="header">
+    <h4>Details about word {{ word_id }} ({{ word }})</h4>
+    <p>
+      Search term :
+        <select name="term_select" onChange="window.location.href='/'+this.value+'/word/{{ word_id }}'">
+        {% for idx, term in inputs.items() %}
+          <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
+        {% endfor %}
+      </select>
+    </p>
   </div>
+  <div id="wrap">
+    <div id="left_column">
+      <h2>Topic repartition</h2>
+      <bar-chart></bar-chart>
+    </div>
+  <div id="right_column">
+    <h2>Related documents ({{documents|length}})</h2>
+    <ul>
+      {% for doc in documents %}
+        <li>
+          <strong><a href="../document/{{ doc[3] }}">{{ doc[0] }}</a></strong>
+          <br>
+          {{ doc[1] }}
+          <br>
+          <i>EGC {{ doc[2] }}</i>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
 {% endblock %}
 {% block footer_extra %}
   <script>

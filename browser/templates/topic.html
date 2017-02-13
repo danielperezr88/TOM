@@ -40,55 +40,53 @@
     }
   </style>
 {% endblock %}
+{% block breadcrumbs %}
+  <span onclick="window.location.href='/{{ iid }}/index'">{{ inputs[iid|int] }}</span>
+  ><span onclick="window.location.href='/{{ iid }}/topic/{{ topic_id }}'">topic #{{ topic_id }}</span>
+{% endblock %}
 {% block body %}
-    <div id="content">
-      <div id="form-outer-wrapper">
-        <div id="form-inner-wrapper">
-          <div id="header">
-            <h4>Details about topic {{ topic_id }}</h4>
-            <!--<p>Overall frequency : {{ frequency }}%</p>-->
-            <p>
-              Search term :
-                <select name="term_select" onChange="window.location.href='/'+this.value+'/topic/{{ topic_id }}'">
-                {% for idx, term in inputs.items() %}
-                  <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
-                {% endfor %}
-              </select>
-            </p>
-          </div>
-          <div id="wrap">
-            <h2>Most relevant words</h2>
-            <bar-chart></bar-chart>
-            <h2>Related documents ({{documents|length}})</h2>
-            <table id="documents" class="display" cellspacing="0" width="900px">
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>Source</th>
-                  <th>Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for doc in documents %}
-                  <tr>
-                    <td>{{ doc[0] }}</td>
-                    <td>{{ doc[1] if doc[1] != 'nan' else '' }}</td>
-                    <td>{{ doc[2] }}</td>
-                    <td>{{ doc[3] }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-            <h2>Topic frequency</h2><br/>
-            <line-chart></line-chart>
-            <!--<h2>Author network</h2>
-            <author-network></author-network>-->
-            <!--<h2>Number of documents per institution</h2>
-            <bar-chart2></bar-chart2>-->
-          </div>
-        </div>
-      </div>
-    </div>
+  <div id="header">
+    <h4>Details about topic {{ topic_id }}</h4>
+    <!--<p>Overall frequency : {{ frequency }}%</p>-->
+    <p>
+      Search term :
+        <select name="term_select" onChange="window.location.href='/'+this.value+'/topic/{{ topic_id }}'">
+        {% for idx, term in inputs.items() %}
+          <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
+        {% endfor %}
+      </select>
+    </p>
+  </div>
+  <div id="wrap">
+    <h2>Most relevant words</h2>
+    <bar-chart></bar-chart>
+    <h2>Related documents ({{documents|length}})</h2>
+    <table id="documents" class="display" cellspacing="0" width="900px">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Source</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for doc in documents %}
+          <tr>
+            <td>{{ doc[0] }}</td>
+            <td>{{ doc[1] if doc[1] != 'nan' else '' }}</td>
+            <td>{{ doc[2] }}</td>
+            <td>{{ doc[3] }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <h2>Topic frequency</h2><br/>
+    <line-chart></line-chart>
+    <!--<h2>Author network</h2>
+    <author-network></author-network>-->
+    <!--<h2>Number of documents per institution</h2>
+    <bar-chart2></bar-chart2>-->
+  </div>
 {% endblock %}
 {% block footer_extra %}
   <script>
