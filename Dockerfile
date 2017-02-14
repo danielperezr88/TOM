@@ -16,8 +16,8 @@ RUN curl -SL 'https://bootstrap.pypa.io/get-pip.py' | python2 \
 			-o /pip_shebang_patch.txt \
 	&& patch -p1 < pip_shebang_patch.txt
 
-RUN pip2 install -y supervisor && \
-    pip2 install -y superlance==1.0.0
+RUN pip2 install supervisor && \
+    pip2 install superlance==1.0.0
 
 # Download Observatory
 RUN curl -fSL "https://github.com/danielperezr88/TOM/archive/v1.3.tar.gz" -o TOM.tar.gz && \
