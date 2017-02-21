@@ -1,4 +1,5 @@
 from sys import modules
+from os import path
 import logging
 
 try:
@@ -48,3 +49,16 @@ class BucketedFileRefresher:
                 logging.error(msg)
                 raise ImportError(msg)
 
+
+def retrieve_entire_bucket(bucket, filepath='.'):
+    if "google" in modules:
+        try:
+            client = storage.Client()
+            cblobs = client.get_bucket(lookup_bucket(client, bucket)).list_blobs()
+            for blob in cblobs:
+                fp = open(path.join(filepath, blob.name), 'wb')
+                blob.download_to_file(fp)
+                fp.close()
+        except BaseException as ex:
+            msg = "Unable to access file \"%s\": Unreachable or unexistent bucket and file." % (blob.name,)
+            logging.error(msg)

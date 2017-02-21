@@ -219,10 +219,12 @@ if __name__ == '__main__':
                 for filepath in glob(path.join(datadir, input_+'_*.csv')):
                     if dt.datetime.strptime(path.splitext(filepath)[0].split('_')[-1], '%Y%m%d').date() > \
                                     today - dt.timedelta(days=timeframe):
-                        df = df.append(
-                            pd.read_csv(filepath, sep='\t', encoding='utf-8'),
-                            ignore_index=True
-                        ).drop_duplicates()
+                        aux_df = pd.read_csv(filepath, sep='\t', encoding='utf-8')
+                        if not aux_df.empty:
+                            df = df.append(aux_df, ignore_index=True).drop_duplicates()
+
+                if df.count(0).empty:
+                    continue
 
                 if df.count(0)[0] <= 1:
                     continue

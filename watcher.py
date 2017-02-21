@@ -1,5 +1,5 @@
 # coding: utf-8
-from os import path, getpid, remove, close, popen
+from os import path, getpid, remove, close, popen, makedirs
 from sys import executable as pythonPath
 from sys import modules
 
@@ -22,11 +22,12 @@ try:
 except BaseException as e:
     pass
 
-from utils import BucketedFileRefresher
+from utils import BucketedFileRefresher, retrieve_entire_bucket
 
 CONFIG_BUCKET = 'config'
-BFR = BucketedFileRefresher()
+INPUT_BUCKET = 'inputs'
 
+BFR = BucketedFileRefresher()
 
 def save_pid():
     """Save pid into a file: filename.pid."""
@@ -177,6 +178,13 @@ if __name__ == "__main__":
     logfilename = inspect.getfile(inspect.currentframe()) + ".log"
     logging.basicConfig(filename=logfilename, level=logging.INFO, format='%(asctime)s %(message)s')
     logging.info("Started")
+
+    # Take all possible scraped data from inputs bucket
+    dirname = path.dirname(path.realpath(__file__))
+    datadir = path.join(dirname, "input", "data")
+    if not path.exists(datadir):
+        makedirs(datadir)
+    retrieve_entire_bucket(INPUT_BUCKET, datadir)
 
     # Maybe create input activation control file
     refresh_and_retrieve_module("topic_model_browser_active_inputs.py", CONFIG_BUCKET,

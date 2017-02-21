@@ -81,7 +81,14 @@ class NewsArticleScraper:
         })
 
         """ Process CSE query """
-        page = request(CSE_API_URL, params=parameters)
+        cntr = 0
+        while cntr < 5:
+            page = request(CSE_API_URL, params=parameters)
+            if page is not None:
+                break
+            cntr += 1
+            sleep(101)
+
         response_data = json.loads(page.text)
 
         if 'items' not in response_data:
@@ -235,8 +242,7 @@ if __name__ == '__main__':
             if day not in dates:
                 filepath = path.join(datadir, name_noextension+'_'+day.strftime("%Y%m%d")+'.csv')
                 scraped = scraper(day)
-                if scraped:
-                    pd.DataFrame(scraped).to_csv(filepath, sep='\t', encoding='utf-8')
+                pd.DataFrame(scraped).to_csv(filepath, sep='\t', encoding='utf-8')
 
         """Check present day news every 8 hours"""
         results = pd.DataFrame()

@@ -20,12 +20,12 @@ RUN pip2 install supervisor && \
     pip2 install superlance==1.0.0
 
 # Download Observatory
-RUN curl -fSL "https://github.com/danielperezr88/TOM/archive/v1.5.tar.gz" -o TOM.tar.gz && \
+RUN curl -fSL "https://github.com/danielperezr88/TOM/archive/v1.6.tar.gz" -o TOM.tar.gz && \
 	tar -xf TOM.tar.gz -C . && \
 	mkdir /app && \
-	mv TOM-1.5/* /app/ && \
+	mv TOM-1.6/* /app/ && \
 	rm TOM.tar.gz && \
-	rm -rf TOM-1.5 && \
+	rm -rf TOM-1.6 && \
 	mv /app/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 	
 RUN curl -sSO https://dl.google.com/cloudagents/install-logging-agent.sh -o install-logging-agent.sh && \
@@ -52,6 +52,11 @@ RUN cd /usr/local/lib/python3.4/site-packages \
 	&& curl -fSL "https://gist.githubusercontent.com/danielperezr88/209efa94a1824681151f6a26401e16b5/raw/a608e975ee53ff1ddf7422d800395f1114bf8920/patch_tom_lib.txt" \
 		-o /usr/local/lib/python3.4/site-packages/patch_tom_lib.txt \
 	&& patch -p1 < patch_tom_lib.txt
+
+RUN cd /usr/local/lib/python3.4/site-packages/sklearn/decomposition \
+    && curl -fSL "https://gist.githubusercontent.com/danielperezr88/dfe55e5ca696ff9b74a73732fd59c71d/raw/bd554222c6d356cf1223bb8173ff3dbaf030f5eb/nmf_patch.txt" \
+        -o /usr/local/lib/python3.4/site-packages/sklearn/decomposition/nmf_patch.txt \
+    && patch -p1 < nmf_patch.txt
 	
 EXPOSE 80
 
