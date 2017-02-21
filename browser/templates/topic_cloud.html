@@ -19,18 +19,26 @@
   </style>
 {% endblock %}
 {% block breadcrumbs %}
-  <span onclick="window.location.href='/{{ iid }}/index'">{{ inputs[iid|int] }}</span>
-  ><span onclick="window.location.href='/{{ iid }}/topic_cloud'">topic cloud</span>
+  <span onclick="window.location.href='/{{ iid }}/{{ tf }}/index'">{{ inputs[iid|int] }}</span><nobr>></nobr>
+  <span onclick="window.location.href='/{{ iid }}/{{ tf }}/topic_cloud'">topic cloud</span>
 {% endblock %}
 {% block body %}
   <div id="header">
     <h4>Topic cloud</h4>
     <!--<p>Each bubble represents a topic; double-click one to get more details</p>-->
     <p>
-      Search term :
-        <select name="term_select" onChange="window.location.href='/'+this.value+'/topic_cloud'">
+      Chart Search term :
+        <select name="term_select" onChange="window.location.href='/'+this.value+'/{{ tf }}/index'">
         {% for idx, term in inputs.items() %}
           <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
+        {% endfor %}
+      </select>
+    </p>
+    <p>
+      Timeframe :
+        <select name="timeframe_select" onChange="window.location.href='/{{ iid }}/'+this.value+'/index'">
+        {% for tmfr in [31, 93, 365] %}
+          <option value="{{ tmfr }}"{% if tmfr is equalto tf|int %} selected{% endif %}>{{ tmfr }} days</option>
         {% endfor %}
       </select>
     </p>
@@ -74,7 +82,7 @@
                 .attr("preserveAspectRatio", "xMinYMin meet")
                 .attr("pointer-events", "all");
 
-        d3.json("{{ url_for('static', filename = 'data/input'+iid+'_topic_cloud.json') }}", function (error, cloud) {
+        d3.json("{{ url_for('static', filename = 'data/input'+iid+'_'+tf+'d_topic_cloud.json') }}", function (error, cloud) {
             if (error) throw error;
 
             force

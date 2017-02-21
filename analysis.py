@@ -1,13 +1,19 @@
 # coding: utf-8
 from os import path, getpid, makedirs
+from io import StringIO
 from glob import glob
 import itertools
 import inspect
 import shutil
+import re
 
 from tom_lib.nlp.topic_model import NonNegativeMatrixFactorization
 from tom_lib.structure.corpus import Corpus
 import tom_lib.utils as utils
+
+from nltk.corpus import stopwords
+from nltk.data import load
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 
 import pickle
 import codecs
@@ -19,6 +25,16 @@ import pandas as pd
 from time import sleep
 
 import dateutil.parser as parser
+from requests import request as req
+
+from utils import BucketedFileRefresher
+
+BFR = BucketedFileRefresher()
+filename = "syntaxnet_api_config.py"
+filepath = path.join(path.dirname(path.realpath(__file__)), filename)
+BFR("config", filename, filepath)
+
+import syntaxnet_api_config as s_api
 
 
 def save_pid():
@@ -35,7 +51,7 @@ def generateDateColumn(row):
             return parser.parse(row[col]).date().strftime("%Y-%m-%d")
         except BaseException as ex:
             continue
-    return parser.datetime.datetime.today().date().strftime("%Y-%m-%d")
+    return dt.datetime.today().date().strftime("%Y-%m-%d")
 
 
 def custom_top_words(topic_model, topic_id, num_words=20):
@@ -55,11 +71,119 @@ def custom_save_word_distribution(distribution, file_path):
             f.write(weighted_word[0]+'\t'+str(weighted_word[1])+'\t'+str(weighted_word[2])+'\n')
 
 
+def uniquefy(iterable):
+    seen = set()
+    seen_add = seen.add
+    for element in iterable:
+        if seen.__contains__(element):
+            last = element.split()[-1]
+            num = int(last[1:]) if re.match(r'^#[1-9][0-9]*$', last) is not None else 0
+            yield " ".join(element.split()[:-1]+['#'+str(num+1)]) if num != 0 else element + " #2"
+        else:
+            seen_add(element)
+            yield element
+
+
+def generate_url(host, protocol='http', port=80, directory=''):
+
+    if isinstance(directory, list):
+        directory = '/'.join(directory)
+
+    return "%s://%s:%d/%s" % (protocol, host, port, directory)
+
+
+def syntaxnet_api_filter_text(text, types):
+    res = req(
+        'POST',
+        generate_url(s_api.api_ip, port=s_api.api_port, directory='v1/parsey-universal-full'),
+        data=dict(text=text),
+        headers={'Content-Type': 'text/plain', 'charset': 'utf-8', 'Accept': 'text/plain', 'Content-Language': 'es'}
+    ).text
+
+    res = pd.read_table(StringIO(res), sep="\t")
+
+    return pd.np.array(res[[0,3]][~res[3].isin(types)])
+
+
+def custom_tokenizer(text):
+
+    sent_tok = load('tokenizers/punkt/spanish.pickle').tokenize
+
+    filtered_tokens = []
+    for sent in sent_tok(text):
+        tokens = syntaxnet_api_filter_text(
+            sent,
+            ['VERB', 'DET', 'PRON', 'ADV', 'AUX', 'SCONJ', 'ADP']
+        )
+        filtered_tokens += tokens[:, 0].tolist()
+
+    return filtered_tokens
+
+
+class CustomCorpus(Corpus):
+    def __init__(self,
+                 source_file_path,
+                 language=None,
+                 n_gram=1,
+                 vectorization='tfidf',
+                 max_relative_frequency=1.,
+                 min_absolute_frequency=0,
+                 max_features=2000,
+                 token_pattern=r'(?u)\b\w\w+\b',
+                 stop_words=None,
+                 tokenizer=None,
+                 sample=None):
+
+        self._source_file_path = source_file_path
+        self._language = language
+        self._n_gram = n_gram
+        self._vectorization = vectorization
+        self._max_relative_frequency = max_relative_frequency
+        self._min_absolute_frequency = min_absolute_frequency
+
+        self.max_features = max_features
+        self.data_frame = pd.read_csv(source_file_path, sep='\t', encoding='utf-8')
+        if sample:
+            self.data_frame = self.data_frame.sample(frac=0.8)
+        self.data_frame.fillna(' ')
+        self.size = self.data_frame.count(0)[0]
+
+        if stop_words is None and language is not None and tokenizer is None:
+            stop_words = stopwords.words(language)
+        else:
+            stop_words = []
+
+        if vectorization == 'tfidf':
+            vectorizer = TfidfVectorizer(ngram_range=(1, n_gram),
+                                         max_df=max_relative_frequency,
+                                         min_df=min_absolute_frequency,
+                                         max_features=self.max_features,
+                                         token_pattern=token_pattern,
+                                         tokenizer=tokenizer,
+                                         stop_words=stop_words)
+        elif vectorization == 'tf':
+            vectorizer = CountVectorizer(ngram_range=(1, n_gram),
+                                         max_df=max_relative_frequency,
+                                         min_df=min_absolute_frequency,
+                                         max_features=self.max_features,
+                                         token_pattern=token_pattern,
+                                         tokenizer=tokenizer,
+                                         stop_words=stop_words)
+        else:
+            raise ValueError('Unknown vectorization type: %s' % vectorization)
+        self.sklearn_vector_space = vectorizer.fit_transform(self.data_frame['text'].tolist())
+        self.gensim_vector_space = None
+        vocab = vectorizer.get_feature_names()
+        self.vocabulary = dict([(n, s) for n, s in enumerate(vocab)])
+
+
 # Parameters
 max_tf = 1.
 min_tf = 0
 num_topics = 15
 vectorization = 'tfidf'
+
+dt = parser.datetime
 
 if __name__ == '__main__':
 
@@ -85,107 +209,132 @@ if __name__ == '__main__':
             shutil.rmtree(browser_data)
         makedirs(browser_data)
 
+        today = dt.datetime.today().date()
+
         inputs = set([path.splitext(path.basename(f))[0].split('_')[0] for f in glob(path.join(datadir, "*.csv"))])
         for input_ in inputs:
+            for timeframe in [31, 93, 365]:
 
-            df = pd.DataFrame()
-            for filepath in glob(path.join(datadir, input_+'_*.csv')):
-                df = df.append(pd.read_csv(filepath, sep='\t', encoding='utf-8'), ignore_index=True).drop_duplicates()
+                df = pd.DataFrame()
+                for filepath in glob(path.join(datadir, input_+'_*.csv')):
+                    if dt.datetime.strptime(path.splitext(filepath)[0].split('_')[-1], '%Y%m%d').date() > \
+                                    today - dt.timedelta(days=timeframe):
+                        df = df.append(
+                            pd.read_csv(filepath, sep='\t', encoding='utf-8'),
+                            ignore_index=True
+                        ).drop_duplicates()
 
-            df['date'] = df.apply(lambda row: generateDateColumn(row), axis=1)
+                if df.count(0)[0] <= 1:
+                    continue
 
-            column_dict = {df.columns[0]: 'id', 'articleBody': 'text', 'creator': 'affiliation'}
-            df.columns = [(c if c not in column_dict else column_dict[c]) for c in df]
+                df['date'] = df.apply(lambda row: generateDateColumn(row), axis=1)
 
-            df = df.dropna(subset=['text'])
+                column_dict = {df.columns[0]: 'id', 'articleBody': 'text', 'creator': 'affiliation'}
+                df.columns = [(c if c not in column_dict else column_dict[c]) for c in df]
 
-            finalpath = path.join(inputdir, input_+'_final.csv')
-            df.to_csv(finalpath, sep='\t', encoding='utf-8')
+                df = df.dropna(subset=['text'])
 
-            if df.count(0)[0] <= 1:
-                continue
+                if df.count(0)[0] <= 1:
+                    continue
 
-            # Load corpus
-            corpus = Corpus(source_file_path=finalpath,
-                            language='spanish',
-                            vectorization=vectorization,
-                            max_relative_frequency=max_tf,
-                            min_absolute_frequency=min_tf)
-            print('corpus size:', corpus.size)
-            print('vocabulary size:', len(corpus.vocabulary))
+                finalpath = path.join(inputdir, input_ + '_' + str(timeframe) + 'd_final.csv')
+                df.to_csv(finalpath, sep='\t', encoding='utf-8')
 
-            # Infer topics
-            topic_model = NonNegativeMatrixFactorization(corpus=corpus)
-            topic_model.infer_topics(num_topics=int(min([num_topics, corpus.size])))
-            topic_model.print_topics(num_words=10)
+                # Load corpus
+                corpus = CustomCorpus(source_file_path=finalpath,
+                                language='spanish',
+                                vectorization=vectorization,
+                                max_relative_frequency=max_tf,
+                                min_absolute_frequency=min_tf,
+                                token_pattern= \
+                                          r'(?u)\b(?:' + \
+                                              r'[a-zA-ZáÁàÀäÄâÂéÉèÈëËêÊíÍìÌïÏîÎóÓòÒöÖôÔúÚùÙüÜûÛñÑçÇ\-]' + \
+                                              r'[a-zA-ZáÁàÀäÄâÂéÉèÈëËêÊíÍìÌïÏîÎóÓòÒöÖôÔúÚùÙüÜûÛñÑçÇ\-]+' + \
+                                            r'|[nNxXyYaAoOeEuU]' + \
+                                          r')\b')
+                print('corpus size:', corpus.size)
+                print('vocabulary size:', len(corpus.vocabulary))
 
-            # Export topic cloud
-            utils.save_topic_cloud(topic_model, path.join(browser_data, input_+'_topic_cloud.json'))
+                # Infer topics
+                topic_model = NonNegativeMatrixFactorization(corpus=corpus)
+                topic_model.infer_topics(num_topics=int(min([num_topics, corpus.size])))
+                topic_model.print_topics(num_words=10)
 
-            # Export details about topics
-            for topic_id in range(topic_model.nb_topics):
-                custom_save_word_distribution(custom_top_words(topic_model, topic_id, 20),
-                                              path.join(browser_data, input_ +
-                                                        '_word_distribution' + str(topic_id) + '.tsv'))
-                utils.save_affiliation_repartition(topic_model.affiliation_repartition(topic_id),
-                                                   path.join(browser_data, input_ +
-                                                             '_affiliation_repartition' + str(topic_id) + '.tsv'))
-                evolution = []
-                today = parser.datetime.datetime.today().date()
-                for i in range(14):
-                    d = today - parser.datetime.timedelta(weeks=2)+parser.datetime.timedelta(days=i)
-                    evolution.append((d.strftime("%Y-%m-%d"), topic_model.topic_frequency(topic_id, date=d.strftime("%Y-%m-%d"))))
-                utils.save_topic_evolution(evolution, path.join(browser_data, input_+'_frequency' +
-                                                                str(topic_id) + '.tsv'))
+                # Export topic cloud
+                utils.save_topic_cloud(topic_model, path.join(browser_data, input_ + '_' + str(timeframe) +
+                                                              'd_topic_cloud.json'))
 
-            # Export details about documents
-            for doc_id in range(topic_model.corpus.size):
-                utils.save_topic_distribution(topic_model.topic_distribution_for_document(doc_id),
-                                              path.join(browser_data, input_ +
-                                                        '_topic_distribution_d' + str(doc_id) + '.tsv'))
+                # Export details about topics
+                for topic_id in range(topic_model.nb_topics):
+                    custom_save_word_distribution(custom_top_words(topic_model, topic_id, 20),
+                                                  path.join(browser_data, input_ + '_' + str(timeframe) +
+                                                            'd_word_distribution' + str(topic_id) + '.tsv'))
+                    utils.save_affiliation_repartition(topic_model.affiliation_repartition(topic_id),
+                                                       path.join(browser_data, input_ + '_' + str(timeframe) +
+                                                                 'd_affiliation_repartition' + str(topic_id) + '.tsv'))
+                    evolution = []
+                    for i in range(timeframe):
+                        d = today - dt.timedelta(days=timeframe)+dt.timedelta(days=i)
+                        evolution.append((d.strftime("%Y-%m-%d"), topic_model.topic_frequency(topic_id, date=d.strftime("%Y-%m-%d"))))
+                    utils.save_topic_evolution(evolution, path.join(browser_data, input_ + '_' + str(timeframe) +
+                                                                    'd_frequency' + str(topic_id) + '.tsv'))
 
-            # Export details about words
-            for word_id in range(len(topic_model.corpus.vocabulary)):
-                utils.save_topic_distribution(topic_model.topic_distribution_for_word(word_id), path.join(browser_data,
-                                              input_ + '_topic_distribution_w' + str(word_id) + '.tsv'))
+                # Export details about documents
+                for doc_id in range(topic_model.corpus.size):
+                    utils.save_topic_distribution(topic_model.topic_distribution_for_document(doc_id),
+                                                  path.join(browser_data, input_ + '_' + str(timeframe) +
+                                                            'd_topic_distribution_d' + str(doc_id) + '.tsv'))
 
-            # Associate documents with topics
-            topic_associations = topic_model.documents_per_topic()
+                # Export details about words
+                for word_id in range(len(topic_model.corpus.vocabulary)):
+                    utils.save_topic_distribution(
+                        topic_model.topic_distribution_for_word(word_id),
+                        path.join(browser_data,
+                                  input_ + '_' + str(timeframe) + 'd_topic_distribution_w' + str(word_id) + '.tsv'))
 
-            # Export per-topic author network
-            for topic_id, assoc in topic_associations.items():
-                utils.save_json_object(corpus.collaboration_network(assoc), path.join(
-                    browser_data, input_ + '_author_network' + str(topic_id) + '.json'))
+                # Associate documents with topics
+                topic_associations = topic_model.documents_per_topic()
 
-            # Retrieve 6 topic-wise more related documents
-            dists = pd.np.zeros(shape=(corpus.size, topic_model.nb_topics))
-            for doc_id in range(topic_model.corpus.size):
-                dists[doc_id, :] = topic_model.topic_distribution_for_document(doc_id)
+                # Export per-topic author network
+                for topic_id, assoc in topic_associations.items():
+                    utils.save_json_object(corpus.collaboration_network(assoc), path.join(
+                        browser_data, input_ + '_' + str(timeframe) + 'd_author_network' + str(topic_id) + '.json'))
 
-            indices = pd.np.argsort(pd.np.sum(dists, axis=1))[-6:]
-            n_docs = indices.size
+                # Retrieve 6 topic-wise more related documents
+                dists = pd.np.zeros(shape=(corpus.size, topic_model.nb_topics))
+                for doc_id in range(topic_model.corpus.size):
+                    dists[doc_id, :] = topic_model.topic_distribution_for_document(doc_id)
 
-            results = pd.np.empty((n_docs, n_docs - 1), dtype=object)
-            for i in range(n_docs):
-                for j in range(n_docs - 1):
-                    i_unsetted = pd.np.array(list(range(i)) + list(range(i+1, n_docs)))
-                    results[i, j] = [
-                        "Document " + str(i+1),
-                        "Document " + str(i_unsetted[j]+1),
-                        pd.np.sum(pd.np.multiply(dists[indices[i]], dists[indices[i_unsetted[j]]])).tolist()]
+                indices = pd.np.argsort(pd.np.sum(dists, axis=1))[-6:]
+                names = list(uniquefy(
+                    map(
+                        lambda x: re.sub(r'^www\.', '', x.split('/')[2]),
+                        corpus.data_frame['url'].iloc[indices].tolist()
+                    )
+                ))
+                n_docs = indices.size
 
-            data_dict = dict(data=pd.np.reshape(results, (1, -1))[0].tolist(),
-                             concepts=["Document %d" % (i+1,) for i in range(6)])
+                results = pd.np.empty((n_docs, n_docs - 1), dtype=object)
+                for i in range(n_docs):
+                    for j in range(n_docs - 1):
+                        i_unsetted = pd.np.array(list(range(i)) + list(range(i+1, n_docs)))
+                        results[i, j] = [
+                            names[i],
+                            names[i_unsetted[j]],
+                            pd.np.sum(pd.np.multiply(dists[indices[i]], dists[indices[i_unsetted[j]]])).tolist()]
 
-            utils.save_json_object(data_dict, path.join(
-                    browser_data, input_ + '_document_network.json'))
+                data_dict = dict(data=pd.np.reshape(results, (1, -1))[0].tolist(),
+                                 concepts=names)
+
+                utils.save_json_object(data_dict, path.join(
+                        browser_data, input_ + '_' + str(timeframe) + 'd_document_network.json'))
 
 
-            # Export models
-            with open(path.join(pickledir, input_+'_corpus.pkl'), 'wb') as fp:
-                pickle.dump(corpus, fp)
+                # Export models
+                with open(path.join(pickledir, input_ + '_' + str(timeframe) + 'd_corpus.pkl'), 'wb') as fp:
+                    pickle.dump(corpus, fp)
 
-            with open(path.join(pickledir, input_+'_topic_model.pkl'), 'wb') as fp:
-                pickle.dump(topic_model, fp)
+                with open(path.join(pickledir, input_ + '_' + str(timeframe) + 'd_topic_model.pkl'), 'wb') as fp:
+                    pickle.dump(topic_model, fp)
 
         sleep(300)

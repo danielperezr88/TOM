@@ -50,17 +50,25 @@
   </style>
 {% endblock %}
 {% block breadcrumbs %}
-  <span onclick="window.location.href='/{{ iid }}/index'">{{ inputs[iid|int] }}</span>
-  ><span onclick="window.location.href='/{{ iid }}/document/{{ doc_id }}'">document #{{ doc_id }}</span>
+  <span onclick="window.location.href='/{{ iid }}/{{ tf }}/index'">{{ inputs[iid|int] }}</span><nobr>></nobr>
+  <span onclick="window.location.href='/{{ iid }}/{{ tf }}/document/{{ doc_id }}'">document #{{ doc_id }}</span>
 {% endblock %}
 {% block body %}
   <div id="header">
     <h4>Article {{ doc_id }} ({{ authors }}, {{ year }})</h4>
     <p>
-      Search term :
-        <select name="term_select" onChange="window.location.href='/'+this.value+'/document/{{ doc_id }}'">
+      Chart Search term :
+        <select name="term_select" onChange="window.location.href='/'+this.value+'/{{ tf }}/index'">
         {% for idx, term in inputs.items() %}
           <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
+        {% endfor %}
+      </select>
+    </p>
+    <p>
+      Timeframe :
+        <select name="timeframe_select" onChange="window.location.href='/{{ iid }}/'+this.value+'/index'">
+        {% for tmfr in [31, 93, 365] %}
+          <option value="{{ tmfr }}"{% if tmfr is equalto tf|int %} selected{% endif %}>{{ tmfr }} days</option>
         {% endfor %}
       </select>
     </p>
@@ -184,7 +192,7 @@
       .attr("height", height + margin.top + margin.bottom)
     .append("g")
       .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'_topic_distribution_d'+doc_id+'.tsv') }}", type, function(error, data) {
+    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'_'+tf+'d_topic_distribution_d'+doc_id+'.tsv') }}", type, function(error, data) {
       x.domain(data.map(function(d) { return d.topic; }));
       y.domain([0, d3.max(data, function(d) { return d.weight; })]);
       svg.append("g")
@@ -213,7 +221,7 @@
         .attr("width", x.rangeBand())
         .attr("y", function(d) { return y(d.weight); })
         .attr("height", function(d) { return height - y(d.weight); })
-        .on('dblclick', function(d) {window.location.href = '/{{ iid }}/topic/' + d.topic.split(" ")[1];})
+        .on('dblclick', function(d) {window.location.href = '/{{ iid }}/{{ tf }}/topic/' + d.topic.split(" ")[1];})
         .style('cursor','pointer')
     });
 

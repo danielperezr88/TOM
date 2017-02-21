@@ -4,15 +4,15 @@
     <img src="{{ url_for('static', filename='img/cemex-ventures-logo.png')}}" style="float: right;height: 46px;padding: 21px 21px 0 0;">
     <ul id="header-nav">
       <li>
-        <a href="/{{ iid or '0' }}/index" id="head-main">
+        <a href="/{{ iid or '0' }}/{{ tf or 31 }}/index" id="head-main">
           <h1>Concept Insight Visualizer</h1>
           <p>for keyword exploration</p>
         </a>
       </li>
       <li>
         <ul id="nav">
-          <li><a href="{{ url_for('topic_cloud', iid=(iid or 0)) }}">Topic Cloud</a></li>
-          <li><a href="{{ url_for('vocabulary', iid=(iid or 0)) }}">Vocabulary</a></li>
+          <li><a href="{{ url_for('topic_cloud', iid=(iid or 0), tf=(tf or 31)) }}">Topic Cloud</a></li>
+          <li><a href="{{ url_for('vocabulary', iid=(iid or 0), tf=(tf or 31)) }}">Vocabulary</a></li>
           <li><a href="{{ url_for('about') }}">About Us</a></li>
         </ul>
       </li>
@@ -40,23 +40,30 @@
       <div id="form-inner-wrapper">
         <div id="breadcrumbs">
           {% block breadcrumbs %}
-            <span onclick="window.location.href='/{{ iid }}/index'">{{ inputs[iid|int] }}</span>
-            ><span onclick="window.location.href='/{{ iid }}/index'">index</span>
+            <span onclick="window.location.href='/{{ iid }}/{{ tf }}/index'">{{ inputs[iid|int] }}</span><nobr>></nobr>
+            <span onclick="window.location.href='/{{ iid }}/{{ tf }}/index'">index</span>
           {% endblock %}
         </div>
         {% block body %}
           <div id="header">
             <h4>Topic based document similarity</h4>
             <p>
-              Search term :
-                <select name="term_select" onChange="window.location.href='/'+this.value+'/index'">
+              Chart Search term :
+                <select name="term_select" onChange="window.location.href='/'+this.value+'/{{ tf }}/index'">
                 {% for idx, term in inputs.items() %}
                   <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
                 {% endfor %}
               </select>
             </p>
+            <p>
+              Timeframe :
+                <select name="timeframe_select" onChange="window.location.href='/{{ iid }}/'+this.value+'/index'">
+                {% for tmfr in [31, 93, 365] %}
+                  <option value="{{ tmfr }}"{% if tmfr is equalto tf|int %} selected{% endif %}>{{ tmfr }} days</option>
+                {% endfor %}
+              </select>
+            </p>
           </div>
-            <h4></h4>
         {% endblock %}
       </div>
     </div>
@@ -79,6 +86,7 @@
 
       var interval = Math.floor(1000 / 60 * 10);
       var resizeTimer;
+      var isFirstLoad = true;
 
       function render(){
 
@@ -89,14 +97,15 @@
 
           $('#form-inner-wrapper').css('width', width);
 
-          d3.json("{{ url_for('static', filename = 'data/input'+iid+'_document_network.json') }}", function (error, data) {
+          d3.json("{{ url_for('static', filename = 'data/input'+iid+'_'+tf+'d_document_network.json') }}", function (error, data) {
 
               if (error) throw error;
 
               var last = d3.select('#form-inner-wrapper')._groups[0][0].lastChild;
-              if (last != null) {
+              if (last != null && !isFirstLoad) {
                   last.remove();
               }
+              isFirstLoad = false;
 
               function sort(a,b){ return d3.ascending(data.concepts.indexOf(a),data.concepts.indexOf(b)); }
               var colors = generateObject(data.concepts,color_array);
@@ -147,18 +156,32 @@
         });
 
         var i = 0;
+        var isPaused = false;
         setInterval(function(){
-
-          d3.select('g.groups:nth-child('+(i+1)+')').dispatch('mouseover');
-          $('g.groups:nth-child('+(i+2)+')').find('text').css('font-weight','bold');
-          setTimeout(function(){
-            d3.select('g.groups:nth-child('+(i+1)+')').dispatch('mouseout');
-            $('g.groups:nth-child('+(i+2)+')').find('text').css('font-weight','normal');
-            i+=2;
-            i%=$('g.groups').length;
-          },4000);
-
+          if(!isPaused){
+            d3.select('g.groups:nth-child('+(i+1)+')').dispatch('mouseover');
+            $('g.groups:nth-child('+(i+2)+')').find('text').css('font-weight','bold');
+            setTimeout(function(){
+              d3.select('g.groups:nth-child('+(i+1)+')').dispatch('mouseout');
+              $('g.groups:nth-child('+(i+2)+')').find('text').css('font-weight','normal');
+              i+=2;
+              i%=$('g.groups').length;
+            },4000);
+          }
         },6000);
+
+        $('#form-inner-wrapper')
+          .append($('<button/>').addClass('pause'));
+
+        $('.pause, .play').on('click', function(e) {
+          if($(this).hasClass('pause')) {
+            isPaused = true;
+            $(this).addClass('play').removeClass('pause');
+          } else {
+            isPaused = false;
+            $(this).removeClass('play').addClass('pause');
+          }
+        });
 
       });
     </script>

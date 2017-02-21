@@ -20,12 +20,12 @@ RUN pip2 install supervisor && \
     pip2 install superlance==1.0.0
 
 # Download Observatory
-RUN curl -fSL "https://github.com/danielperezr88/TOM/archive/v1.3.tar.gz" -o TOM.tar.gz && \
+RUN curl -fSL "https://github.com/danielperezr88/TOM/archive/v1.4.tar.gz" -o TOM.tar.gz && \
 	tar -xf TOM.tar.gz -C . && \
 	mkdir /app && \
-	mv TOM-1.3/* /app/ && \
+	mv TOM-1.4/* /app/ && \
 	rm TOM.tar.gz && \
-	rm -rf TOM-1.3 && \
+	rm -rf TOM-1.4 && \
 	mv /app/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 	
 RUN curl -sSO https://dl.google.com/cloudagents/install-logging-agent.sh -o install-logging-agent.sh && \

@@ -41,18 +41,26 @@
   </style>
 {% endblock %}
 {% block breadcrumbs %}
-  <span onclick="window.location.href='/{{ iid }}/index'">{{ inputs[iid|int] }}</span>
-  ><span onclick="window.location.href='/{{ iid }}/topic/{{ topic_id }}'">topic #{{ topic_id }}</span>
+  <span onclick="window.location.href='/{{ iid }}/{{ tf }}/index'">{{ inputs[iid|int] }}</span><nobr>></nobr>
+  <span onclick="window.location.href='/{{ iid }}/{{ tf }}/topic/{{ topic_id }}'">topic #{{ topic_id }}</span>
 {% endblock %}
 {% block body %}
   <div id="header">
     <h4>Details about topic {{ topic_id }}</h4>
     <!--<p>Overall frequency : {{ frequency }}%</p>-->
     <p>
-      Search term :
-        <select name="term_select" onChange="window.location.href='/'+this.value+'/topic/{{ topic_id }}'">
+      Chart Search term :
+        <select name="term_select" onChange="window.location.href='/'+this.value+'/{{ tf }}/index'">
         {% for idx, term in inputs.items() %}
           <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
+        {% endfor %}
+      </select>
+    </p>
+    <p>
+      Timeframe :
+        <select name="timeframe_select" onChange="window.location.href='/{{ iid }}/'+this.value+'/index'">
+        {% for tmfr in [31, 93, 365] %}
+          <option value="{{ tmfr }}"{% if tmfr is equalto tf|int %} selected{% endif %}>{{ tmfr }} days</option>
         {% endfor %}
       </select>
     </p>
@@ -128,7 +136,7 @@
 
         $('#documents tbody').on('dblclick', 'tr', function () {
           var data = table.row( this ).data();
-          window.location.href='/{{ iid }}/document/'+ data[3];
+          window.location.href='/{{ iid }}/{{ tf }}/document/'+ data[3];
         });
 
         $('#documents tbody tr').css('cursor','pointer');
@@ -154,7 +162,7 @@
             .attr("height", height + margin.top + margin.bottom)
             .append("g")
             .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'_word_distribution'+topic_id+'.tsv') }}", type, function(error, data) {
+    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'_'+tf+'d_word_distribution'+topic_id+'.tsv') }}", type, function(error, data) {
         x.domain(data.map(function(d) { return d.word; }));
         y.domain([0, d3.max(data, function(d) { return d.weight; })]);
         svg.append("g")
@@ -183,7 +191,7 @@
                 .attr("width", x.rangeBand())
                 .attr("y", function(d) { return y(d.weight); })
                 .attr("height", function(d) { return height - y(d.weight); })
-                .on('dblclick', function(d) {window.location.href = '/{{ iid }}/word/' + d.word_id;})
+                .on('dblclick', function(d) {window.location.href = '/{{ iid }}/{{ tf }}/word/' + d.word_id;})
                 .style('cursor','pointer')
     });
     function type(d) {
@@ -217,7 +225,7 @@
             .attr("height", height2 + margin2.top + margin2.bottom)
             .append("g")
             .attr("transform", "translate(" + margin2.left + "," + margin2.top + ")");
-    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'_frequency'+topic_id+'.tsv') }}", function(error, data2) {
+    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'_'+tf+'d_frequency'+topic_id+'.tsv') }}", function(error, data2) {
         if (error) throw error;
 
         data2.forEach(function(d) {
@@ -254,7 +262,7 @@
     var svg3 = d3.select("author-network").append("svg")
             .attr("width", width3)
             .attr("height", height3);
-    d3.json("{{ url_for('static', filename = 'data/input'+iid+'_author_network'+topic_id+'.json') }}", function(error, graph) {
+    d3.json("{{ url_for('static', filename = 'data/input'+iid+'_'+tf+'d_author_network'+topic_id+'.json') }}", function(error, graph) {
         if (error) throw error;
         force
                 .nodes(graph.nodes)
@@ -303,7 +311,7 @@
             .attr("height", height4 + margin4.top + margin4.bottom)
             .append("g")
             .attr("transform", "translate(" + margin4.left + "," + margin4.top + ")");
-    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'_affiliation_repartition'+topic_id+'.tsv') }}", type, function(error, data4) {
+    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'_'+tf+'d_affiliation_repartition'+topic_id+'.tsv') }}", type, function(error, data4) {
         x4.domain(data4.map(function(d) { return d.affiliation; }));
         y4.domain([0, d3.max(data4, function(d) { return d.count; })]);
         svg4.append("g")

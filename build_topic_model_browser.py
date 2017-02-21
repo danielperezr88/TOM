@@ -38,13 +38,13 @@ def save_pid():
     f.close()
 
 
-def load_pickled_models(iid):
+def load_pickled_models(iid, tf):
 
     try:
-        with open(path.join("pickled_models", "input%d_topic_model.pkl" % (int(iid),)), "rb") as fp:
+        with open(path.join("pickled_models", "input%d_%dd_topic_model.pkl" % (int(iid), int(tf))), "rb") as fp:
             topic_model = pickle.load(fp)
 
-        with open(path.join("pickled_models", "input%d_corpus.pkl" % (int(iid),)), "rb") as fp:
+        with open(path.join("pickled_models", "input%d_%dd_corpus.pkl" % (int(iid), int(tf))), "rb") as fp:
             corpus = pickle.load(fp)
     except FileNotFoundError as e:
         abort(401)
@@ -89,47 +89,48 @@ app = Flask(__name__, static_folder='browser/static', template_folder='browser/t
 QRcode(app)
 
 MY_IP = req.get(generate_url('jsonip.com')).json()['ip']
-PORT = 80
+PORT = 88
 
 
 @app.route('/', methods=['GET'])
 def root():
-    return redirect('/0/index')
+    return redirect('/0/31/index')
 
 
 @app.route('/index', methods=['GET'])
 def index():
-    return redirect('/0/index')
+    return redirect('/0/31/index')
 
 
-@app.route('/<iid>/index', methods=['GET'])
-def iid_index(iid):
+@app.route('/<iid>/<tf>/index', methods=['GET'])
+def iid_index(iid, tf):
 
     input_dir = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET).inputs
 
-    return render_template('index.html', inputs=input_dir, iid=(iid or 0),
+    return render_template('index.html', inputs=input_dir, iid=(iid or 0), tf=(tf or 31),
                            about_url=generate_url(MY_IP, port=PORT, directory=url_for('about')[1:])
                            )
 
 
-@app.route('/<iid>/topic_cloud', methods=['GET'])
-def topic_cloud(iid):
+@app.route('/<iid>/<tf>/topic_cloud', methods=['GET'])
+def topic_cloud(iid, tf):
 
     g.d3version = 'v3'
-    topic_model, corpus = load_pickled_models(iid)
+    topic_model, corpus = load_pickled_models(iid, tf)
     input_dir = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET).inputs
 
     return render_template('topic_cloud.html',
                            inputs=input_dir,
                            iid=iid,
+                           tf=tf,
                            topic_ids=range(topic_model.nb_topics),
                            doc_ids=range(corpus.size))
 
 
-@app.route('/<iid>/vocabulary', methods=['GET'])
-def vocabulary(iid):
+@app.route('/<iid>/<tf>/vocabulary', methods=['GET'])
+def vocabulary(iid, tf):
 
-    topic_model, corpus = load_pickled_models(iid)
+    topic_model, corpus = load_pickled_models(iid, tf)
     input_dir = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET).inputs
 
     word_list = []
@@ -145,17 +146,18 @@ def vocabulary(iid):
     return render_template('vocabulary.html',
                            inputs=input_dir,
                            iid=iid,
+                           tf=tf,
                            topic_ids=range(topic_model.nb_topics),
                            doc_ids=range(corpus.size),
                            splitted_vocabulary=splitted_vocabulary,
                            vocabulary_size=len(word_list))
 
 
-@app.route('/<iid>/topic/<tid>', methods=['GET'])
-def topic_details(iid, tid):
+@app.route('/<iid>/<tf>/topic/<tid>', methods=['GET'])
+def topic_details(iid, tf, tid):
 
     g.d3version = 'v3'
-    topic_model, corpus = load_pickled_models(iid)
+    topic_model, corpus = load_pickled_models(iid, tf)
     input_dir = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET).inputs
 
     topic_associations = topic_model.documents_per_topic()
@@ -169,6 +171,7 @@ def topic_details(iid, tid):
     return render_template('topic.html',
                            inputs=input_dir,
                            iid=iid,
+                           tf=tf,
                            topic_id=tid,
                            frequency=round(topic_model.topic_frequency(int(tid))*100, 2),
                            documents=documents,
@@ -176,11 +179,11 @@ def topic_details(iid, tid):
                            doc_ids=range(corpus.size))
 
 
-@app.route('/<iid>/document/<did>', methods=['GET'])
-def document_details(iid, did):
+@app.route('/<iid>/<tf>/document/<did>', methods=['GET'])
+def document_details(iid, tf, did):
 
     g.d3version = 'v3'
-    topic_model, corpus = load_pickled_models(iid)
+    topic_model, corpus = load_pickled_models(iid, tf)
     input_dir = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET).inputs
 
     vector = topic_model.corpus.vector_for_document(int(did))
@@ -197,6 +200,7 @@ def document_details(iid, did):
     return render_template('document.html',
                            inputs=input_dir,
                            iid=iid,
+                           tf=tf,
                            doc_id=did,
                            url=corpus.data_frame.iloc[int(did)]['url'],
                            words=word_list[:21],
@@ -208,11 +212,11 @@ def document_details(iid, did):
                            short_content=corpus.title(int(did)))
 
 
-@app.route('/<iid>/word/<wid>', methods=['GET'])
-def word_details(iid, wid):
+@app.route('/<iid>/<tf>/word/<wid>', methods=['GET'])
+def word_details(iid, tf, wid):
 
     g.d3version = 'v3'
-    topic_model, corpus = load_pickled_models(iid)
+    topic_model, corpus = load_pickled_models(iid, tf)
     input_dir = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET).inputs
 
     documents = []
@@ -223,6 +227,7 @@ def word_details(iid, wid):
     return render_template('word.html',
                            inputs=input_dir,
                            iid=iid,
+                           tf=tf,
                            word_id=wid,
                            word=topic_model.corpus.word_for_id(int(wid)),
                            topic_ids=range(topic_model.nb_topics),
