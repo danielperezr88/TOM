@@ -223,14 +223,14 @@ if __name__ == '__main__':
         for each in kw_files:
 
             date = dt.datetime.strptime(path.splitext(each)[0].split('_')[-1], '%Y%m%d').date()
-            if date < today-dt.timedelta(days=60):
+            if date < today-dt.timedelta(days=365):
                 remove(each)
                 continue
 
             dates += [date]
 
         """Maybe add non-existent file"""
-        for day in [today-dt.timedelta(days=60)+dt.timedelta(days=d) for d in range(60)]:
+        for day in [today-dt.timedelta(days=365)+dt.timedelta(days=d) for d in range(365)]:
 
             if day not in dates:
                 filepath = path.join(datadir, name_noextension+'_'+day.strftime("%Y%m%d")+'.csv')
