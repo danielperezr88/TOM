@@ -4,16 +4,22 @@
     <img src="{{ url_for('static', filename='img/cemex-ventures-logo.png')}}" style="float: right;height: 46px;padding: 21px 21px 0 0;">
     <ul id="header-nav">
       <li>
-        <a href="/{{ iid or '0' }}/{{ tf or 31 }}/index" id="head-main">
+        <a href="{% if session.logged_in %}/{{ iid or '0' }}/{{ tf or 31 }}/index{% else %}login{% endif %}" id="head-main">
           <h1>Concept Insight Visualizer</h1>
           <p>for keyword exploration</p>
         </a>
       </li>
       <li>
         <ul id="nav">
-          <li><a href="{{ url_for('topic_cloud', iid=(iid or 0), tf=(tf or 31)) }}">Topic Cloud</a></li>
-          <li><a href="{{ url_for('vocabulary', iid=(iid or 0), tf=(tf or 31)) }}">Vocabulary</a></li>
-          <li><a href="{{ url_for('about') }}">About Us</a></li>
+          {% if not session.logged_in %}
+            <li><a href="{{ url_for('login') }}">Login</a>
+            <li><a href="{{ url_for('about') }}">About Us</a></li>
+          {% else %}
+            <li><a href="{{ url_for('topic_cloud', iid=(iid or 0), tf=(tf or 31)) }}">Topic Cloud</a></li>
+            <li><a href="{{ url_for('vocabulary', iid=(iid or 0), tf=(tf or 31)) }}">Vocabulary</a></li>
+            <li><a href="{{ url_for('about') }}">About Us</a></li>
+            <li><a href="{{ url_for('logout') }}">Log out</a></li>
+          {% endif %}
         </ul>
       </li>
       <li id="more-wrapper">

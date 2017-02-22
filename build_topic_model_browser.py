@@ -7,9 +7,10 @@ import pickle
 
 import requests as req
 
-from flask import Flask, render_template, redirect, url_for, g, abort
+from flask import Flask, render_template, redirect, url_for, g, abort, session, request, flash
 from flask.ext.qrcode import QRcode
 import werkzeug.exceptions as ex
+from hashlib import sha512
 
 import logging
 
@@ -22,6 +23,7 @@ __author__ = "Daniel Pérez"
 __email__ = "dperez@human-forecast.com"
 
 CONFIG_BUCKET = 'config'
+ID_BUCKET = 'ids'
 BFR = BucketedFileRefresher()
 
 
@@ -29,7 +31,18 @@ class VoidOrNonexistentTerm(ex.HTTPException):
     code = 401
     description = 'Void or non-existent term'
 
+
+class NotAllowed(ex.HTTPException):
+    code = 403
+    description = 'This is not the page you are looking for.'
+
 abort.mapping[401] = VoidOrNonexistentTerm
+abort.mapping[403] = NotAllowed
+
+
+def no_impostors_wanted(s):
+    if (not s['logged_in']) if 'logged_in' in s.keys() else True:
+        abort(403)
 
 
 def save_pid():
@@ -96,16 +109,50 @@ PORT = 80
 
 @app.route('/', methods=['GET'])
 def root():
+    if (not session['logged_in']) if 'logged_in' in session.keys() else True:
+        return redirect('/login')
     return redirect('/0/31/index')
 
 
 @app.route('/index', methods=['GET'])
 def index():
+    if (not session['logged_in']) if 'logged_in' in session.keys() else True:
+        return redirect('/login')
     return redirect('/0/31/index')
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+
+    ids = refresh_and_retrieve_module('ids_observatoriocse.py', ID_BUCKET).id_dict
+
+    if request.method == 'POST':
+        uname = request.form['username']
+        if uname in ids.keys():
+            pwd = request.form['password']
+            pwd = pwd.encode('latin1')
+            digest = sha512(pwd).hexdigest()
+            if ids[uname] == digest:
+                session['username'] = request.form['username']
+                session['logged_in'] = True
+                return redirect(url_for('index'))
+            flash('Password did not match that for the login provided', 'bad_login')
+            return render_template('login.html')
+        flash('Unknown username', 'bad_login')
+    return render_template('login.html')
+
+
+@app.route('/logout', methods=['GET'])
+def logout():
+    del session['username']
+    session['logged_in'] = False
+    return redirect(url_for('index'))
 
 
 @app.route('/<iid>/<tf>/index', methods=['GET'])
 def iid_index(iid, tf):
+
+    no_impostors_wanted(session)
 
     input_dir = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET).inputs
 
@@ -116,6 +163,8 @@ def iid_index(iid, tf):
 
 @app.route('/<iid>/<tf>/topic_cloud', methods=['GET'])
 def topic_cloud(iid, tf):
+
+    no_impostors_wanted(session)
 
     g.d3version = 'v3'
     topic_model, corpus = load_pickled_models(iid, tf)
@@ -131,6 +180,8 @@ def topic_cloud(iid, tf):
 
 @app.route('/<iid>/<tf>/vocabulary', methods=['GET'])
 def vocabulary(iid, tf):
+
+    no_impostors_wanted(session)
 
     topic_model, corpus = load_pickled_models(iid, tf)
     input_dir = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET).inputs
@@ -158,6 +209,8 @@ def vocabulary(iid, tf):
 @app.route('/<iid>/<tf>/topic/<tid>', methods=['GET'])
 def topic_details(iid, tf, tid):
 
+    no_impostors_wanted(session)
+
     g.d3version = 'v3'
     topic_model, corpus = load_pickled_models(iid, tf)
     input_dir = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET).inputs
@@ -183,6 +236,8 @@ def topic_details(iid, tf, tid):
 
 @app.route('/<iid>/<tf>/document/<did>', methods=['GET'])
 def document_details(iid, tf, did):
+
+    no_impostors_wanted(session)
 
     g.d3version = 'v3'
     topic_model, corpus = load_pickled_models(iid, tf)
@@ -217,6 +272,8 @@ def document_details(iid, tf, did):
 @app.route('/<iid>/<tf>/word/<wid>', methods=['GET'])
 def word_details(iid, tf, wid):
 
+    no_impostors_wanted(session)
+
     g.d3version = 'v3'
     topic_model, corpus = load_pickled_models(iid, tf)
     input_dir = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET).inputs
@@ -239,12 +296,23 @@ def word_details(iid, tf, wid):
 
 @app.route('/about', methods=['GET'])
 def about():
+
     return render_template('about.html')
 
 
 @app.errorhandler(401)
 def void_or_nonexistent_term(e):
     return render_template('401.html'), 401
+
+
+@app.errorhandler(403)
+def void_or_nonexistent_term(e):
+    return render_template('403.html'), 403
+
+
+@app.errorhandler(404)
+def void_or_nonexistent_term(e):
+    return render_template('404.html'), 404
 
 
 if __name__ == '__main__':
