@@ -71,6 +71,11 @@
     <!--<div id="qr-container"><aside>What&rsquo;s this?</aside><img src="{{ qrcode(about_url) }}"></div>-->
   {% block footer_extra %}
     <script type="text/javascript" charset="utf-8">
+      $(document).ready(function(){
+        $('select[name=timeframe_select]').val({{ tf }});
+      });
+    </script>
+    <script type="text/javascript" charset="utf-8">
 
       function generateObject(keys,values) {
         var rv = {};

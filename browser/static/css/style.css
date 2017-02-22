@@ -681,7 +681,8 @@ button{
     text-align: left;
     position: fixed;
     z-index: 500;
-    width: 650px;
+    *width: 650px;
+    width: 900px;
     height: 1.2em;
     border-width: 0px 0px 1px 1px;
     line-height: 11px;
@@ -702,6 +703,10 @@ button{
     margin: 0px;
     display: inline-block;
     line-height: 22px;
+}
+
+#header > p:not(:last-child) {
+    margin-left: 15px;
 }
 
 #breadcrumbs {
@@ -727,7 +732,7 @@ button{
   cursor: pointer;
 }
 
-@media screen and (max-width: 900px) and (min-width: 551px){
+@media screen and (max-width: 1120px) and (min-width: 731px){
   #header {
     width: auto;
     left: 0;
@@ -735,26 +740,26 @@ button{
     border-radius: 0px;
   }
 }
-@media screen and (max-width: 650px){
+@media screen and (max-width: 860px){
   #header {
     font-size: 0.8em;
     height: 1em;
     padding: 3px 3px 9px 3px;
   }
 }
-@media screen and (max-width: 900px) and (min-width: 651px){
+@media screen and (max-width: 1120px) and (min-width: 861px){
   #breadcrumbs {
     margin-top: 38.2px;
   }
 }
-@media screen and (max-width: 650px) and (min-width: 551px){
+@media screen and (max-width: 860px) and (min-width: 731px){
   #breadcrumbs {
     margin-top: 25.8px;
   }
 }
-@media screen and (max-width: 550px){
+@media screen and (max-width: 730px){
   #header {
-    width: 281px;
+    width: 440px;
   }
   #header > h4 {
     display: none;
@@ -763,14 +768,14 @@ button{
     left: 0;
     right: 0;
     margin: auto;
-    position: absolute;
-    width: 275px;
+    *position: absolute;
+    *width: 275px;
   }
   #breadcrumbs {
     margin-top: 0px;
   }
 }
-@media screen and (max-width: 490px){
+@media screen and (max-width: 670px){
   #header {
     width: auto;
     left: 0;
@@ -779,6 +784,16 @@ button{
   }
   #breadcrumbs {
     margin-top: 25.8px;
+  }
+  #header > p {
+      margin-right: 2%;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  #header > p {
+      margin: auto 5px auto 0 !important;
+      font-size: 0.8em;
   }
 }
 

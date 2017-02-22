@@ -31,7 +31,7 @@
     <h4>Details about word {{ word_id }} ({{ word }})</h4>
     <p>
       Chart Search term :
-        <select name="term_select" onChange="window.location.href='/'+this.value+'/{{ tf }}/index'">
+        <select name="term_select" onChange="window.location.href='/'+this.value+'/{{ tf }}/word/{{ word_id }}'">
         {% for idx, term in inputs.items() %}
           <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
         {% endfor %}
@@ -39,7 +39,7 @@
     </p>
     <p>
       Timeframe :
-        <select name="timeframe_select" onChange="window.location.href='/{{ iid }}/'+this.value+'/index'">
+        <select name="timeframe_select" onChange="window.location.href='/{{ iid }}/'+this.value+'/word/{{ word_id }}'">
         {% for tmfr in [31, 93, 365] %}
           <option value="{{ tmfr }}"{% if tmfr is equalto tf|int %} selected{% endif %}>{{ tmfr }} days</option>
         {% endfor %}
@@ -68,6 +68,11 @@
 </div>
 {% endblock %}
 {% block footer_extra %}
+  <script type="text/javascript" charset="utf-8">
+    $(document).ready(function(){
+      $('select[name=timeframe_select]').val({{ tf }});
+    });
+  </script>
   <script>
 
     /*var interval = Math.floor(1000 / 60 * 10);

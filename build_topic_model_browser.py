@@ -16,6 +16,8 @@ import logging
 from utils import BucketedFileRefresher
 from importlib import reload
 
+from analysis import CustomCorpus
+
 __author__ = "Daniel Pérez"
 __email__ = "dperez@human-forecast.com"
 
@@ -89,7 +91,7 @@ app = Flask(__name__, static_folder='browser/static', template_folder='browser/t
 QRcode(app)
 
 MY_IP = req.get(generate_url('jsonip.com')).json()['ip']
-PORT = 88
+PORT = 80
 
 
 @app.route('/', methods=['GET'])
