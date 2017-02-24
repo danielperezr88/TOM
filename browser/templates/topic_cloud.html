@@ -19,7 +19,7 @@
   </style>
 {% endblock %}
 {% block breadcrumbs %}
-  <span onclick="window.location.href='/{{ iid }}/{{ tf }}/index'">{{ inputs[iid|int] }}</span><nobr>></nobr>
+  <span onclick="window.location.href='/{{ iid }}/{{ tf }}/index'">{{ inputs[iid|int]['name'] }}</span><nobr>></nobr>
   <span onclick="window.location.href='/{{ iid }}/{{ tf }}/topic_cloud'">topic cloud</span>
 {% endblock %}
 {% block body %}
@@ -29,8 +29,8 @@
     <p>
       Chart Search term :
         <select name="term_select" onChange="window.location.href='/'+this.value+'/{{ tf }}/topic_cloud'">
-        {% for idx, term in inputs.items() %}
-          <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
+        {% for input in inputs %}
+          <option value="{{ input['id'] }}"{% if iid|int is equalto input['id'] %} selected{% endif %}>{{ input['name'] }}</option>
         {% endfor %}
       </select>
     </p>

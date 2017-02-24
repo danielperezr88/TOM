@@ -27,6 +27,7 @@ topic_model_browser_active_inputs.py
 topic_model_browser_config.py
 syntaxnet_api_config.py
 ids_observatoriocse.py
+update_input_bucket.py
 
 pickled_models
 

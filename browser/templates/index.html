@@ -46,7 +46,7 @@
       <div id="form-inner-wrapper">
         <div id="breadcrumbs">
           {% block breadcrumbs %}
-            <span onclick="window.location.href='/{{ iid }}/{{ tf }}/index'">{{ inputs[iid|int] }}</span><nobr>></nobr>
+            <span onclick="window.location.href='/{{ iid }}/{{ tf }}/index'">{{ inputs[iid|int]['name'] }}</span><nobr>></nobr>
             <span onclick="window.location.href='/{{ iid }}/{{ tf }}/index'">index</span>
           {% endblock %}
         </div>
@@ -56,8 +56,8 @@
             <p>
               Chart Search term :
                 <select name="term_select" onChange="window.location.href='/'+this.value+'/{{ tf }}/index'">
-                {% for idx, term in inputs.items() %}
-                  <option value="{{ idx }}"{% if iid|int is equalto idx|int %} selected{% endif %}>{{ term }}</option>
+                {% for input in inputs %}
+                  <option value="{{ input['id'] }}"{% if iid|int is equalto input['id'] %} selected{% endif %}>{{ input['name'] }}</option>
                 {% endfor %}
               </select>
             </p>

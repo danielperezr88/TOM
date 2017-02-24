@@ -1,4 +1,6 @@
+# coding: utf-8
 from sys import modules
+from glob import glob
 from os import path
 import logging
 
@@ -50,15 +52,99 @@ class BucketedFileRefresher:
                 raise ImportError(msg)
 
 
-def retrieve_entire_bucket(bucket, filepath='.'):
-    if "google" in modules:
-        try:
-            client = storage.Client()
-            cblobs = client.get_bucket(lookup_bucket(client, bucket)).list_blobs()
-            for blob in cblobs:
-                fp = open(path.join(filepath, blob.name), 'wb')
-                blob.download_to_file(fp)
-                fp.close()
-        except BaseException as ex:
-            msg = "Unable to access file \"%s\": Unreachable or unexistent bucket and file." % (blob.name,)
-            logging.error(msg)
+def maybe_populate_client_obj(client_obj=None):
+
+    if client_obj is None:
+        if 'google' not in modules:
+            return
+        else:
+            return storage.Client()
+
+    return client_obj
+
+
+def maybe_upload_file_to_bucket(filename, basename='', client_obj=None, bucket_prefix=None, bucket_suffix=None):
+
+    client_obj = maybe_populate_client_obj(client_obj)
+    if client_obj is None:
+        return
+
+    bucket_name = lookup_bucket(client_obj, prefix=bucket_prefix, suffix=bucket_suffix)
+    if bucket_name is None:
+        return
+
+    bucket = client_obj.get_bucket(bucket_name)
+    if bucket.get_blob(filename) is None:
+        blob = storage.Blob(filename, bucket)
+        with open(path.join(basename, filename), 'rb') as fp:
+            blob.upload_from_file(fp)
+
+    return client_obj
+
+
+def remove_old_files_from_bucket(basename='', client_obj=None, bucket_prefix=None, bucket_suffix=None):
+
+    client_obj = maybe_populate_client_obj(client_obj)
+    if client_obj is None:
+        return
+
+    bucket_name = lookup_bucket(client_obj, prefix=bucket_prefix, suffix=bucket_suffix)
+    if bucket_name is None:
+        return
+
+    bucket = client_obj.get_bucket(bucket_name)
+
+    blobs = bucket.list_blobs()
+    filenames = [path.join(basename, b.name) for b in blobs]
+    for filename, blob in zip(filenames, blobs):
+        if not path.exists(filename):
+            blob.delete()
+
+    return client_obj
+
+
+def upload_new_files_to_bucket(glob_filename, basename='', client_obj=None, bucket_prefix=None, bucket_suffix=None):
+
+    client_obj = maybe_populate_client_obj(client_obj)
+    if client_obj is None:
+        return
+
+    bucket_name = lookup_bucket(client_obj, prefix=bucket_prefix, suffix=bucket_suffix)
+    if bucket_name is None:
+        return
+
+    bucket = client_obj.get_bucket(bucket_name)
+
+    blobs = bucket.list_blobs()
+    blob_names = [b.name for b in blobs]
+    for filepath in glob(path.join(basename, glob_filename)):
+        filename = path.split(filepath)[-1]
+        if filename not in blob_names:
+            blob = storage.Blob(filename, bucket)
+            with open(filepath, 'rb') as fp:
+                blob.upload_from_file(fp)
+
+    return client_obj
+
+
+def maybe_retrieve_entire_bucket(basename='', client_obj=None, bucket_prefix=None, bucket_suffix=None):
+
+    client_obj = maybe_populate_client_obj(client_obj)
+    if client_obj is None:
+        return
+
+    bucket_name = lookup_bucket(client_obj, prefix=bucket_prefix, suffix=bucket_suffix)
+    if bucket_name is None:
+        return
+
+    bucket = client_obj.get_bucket(bucket_name)
+
+    blobs = bucket.list_blobs()
+    filenames = [path.join(basename, b.name) for b in blobs]
+    for filename, blob in zip(filenames, blobs):
+        if not path.exists(filename):
+            fp = open(filename, 'wb')
+            blob.download_to_file(fp)
+            fp.close()
+
+    return client_obj

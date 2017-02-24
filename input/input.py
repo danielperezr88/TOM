@@ -146,6 +146,13 @@ class NewsArticleScraper:
 
 
 CONFIG_BUCKET = 'config'
+INPUT_BUCKET = 'inputs'
+
+gstorage_client = None
+if "google" in modules:
+    gstorage_client = storage.Client()
+
+
 CSE_API_URL = "https://www.googleapis.com/customsearch/v1"
 
 if __name__ == '__main__':
@@ -180,8 +187,7 @@ if __name__ == '__main__':
         destination = path.join(dirname, filename)
 
         try:
-            client = storage.Client()
-            cblob = client.get_bucket(lookup_bucket(client, CONFIG_BUCKET)).get_blob(filename)
+            cblob = gstorage_client.get_bucket(lookup_bucket(gstorage_client, CONFIG_BUCKET)).get_blob(filename)
             fp = open(destination, 'wb')
             cblob.download_to_file(fp)
             fp.close()
@@ -192,16 +198,12 @@ if __name__ == '__main__':
 
     from topic_model_browser_cse_api_keys import key, cx
 
-    """Curate Keyword List"""
-    kw_list = configinput.keyword_list_filter
-
     """Setup Query Parameters"""
     parameters = {
-        "q": kw_list.split()[0],
+        "q": configinput.query,
         "cx": cx,
         "key": key,
-        "lr": "lang_es",
-        "hq": "+".join(kw_list.split()[1:]),
+        "lr": configinput.language
     }
 
     """Instantiate scraper"""
@@ -218,44 +220,59 @@ if __name__ == '__main__':
 
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-    """Check everything every 24 hours"""
+    today = dt.datetime.today().date()
+    today_results = pd.DataFrame()
+    twelve_hour_tic = five_min_tic = dt.datetime.now()
+
+    """Check everything every 12 hours"""
     while True:
 
-        """Check existent files"""
-        today = dt.datetime.today().date()
-        kw_files = glob(path.join(datadir, name_noextension + "_*.csv"))
+        broke = False
 
-        """Remove files older than 2 weeks"""
+        now = pd.DataFrame(scraper(today))
+        if now.size > 0:
+            today_results = today_results.append(now, ignore_index=True).drop_duplicates()
+            filepath = path.join(datadir, name_noextension + '_' + today.strftime("%Y%m%d") + '.csv')
+            today_results.to_csv(filepath, sep='\t', encoding='utf-8')
+
+        del now
+
+        """Remove files older than 1 year"""
         dates = []
-        for each in kw_files:
+        for each in [f for f in glob(path.join(datadir, name_noextension + "_*.csv"))]:
 
             date = dt.datetime.strptime(path.splitext(each)[0].split('_')[-1], '%Y%m%d').date()
-            if date < today-dt.timedelta(days=365):
+            if date < today - dt.timedelta(days=365):
                 remove(each)
                 continue
 
             dates += [date]
 
         """Maybe add non-existent file"""
-        for day in [today-dt.timedelta(days=365)+dt.timedelta(days=d) for d in range(365)]:
-
+        for day in [today - dt.timedelta(days=d) for d in range(365)]:
             if day not in dates:
-                filepath = path.join(datadir, name_noextension+'_'+day.strftime("%Y%m%d")+'.csv')
+
+                # One call per input every 5 minutes at most
+                toc = dt.datetime.now()
+                if toc - five_min_tic < dt.timedelta(minutes=5):
+                    sleep((dt.timedelta(minutes=5)-(toc-five_min_tic)).seconds)
+                five_min_tic = dt.datetime.now()
+
+                filepath = path.join(datadir, name_noextension + '_' + day.strftime("%Y%m%d") + '.csv')
                 scraped = scraper(day)
                 pd.DataFrame(scraped).to_csv(filepath, sep='\t', encoding='utf-8')
 
-        """Check present day news every 8 hours"""
-        results = pd.DataFrame()
-        while True:
-
-            now = pd.DataFrame(scraper(today))
-            if now.size > 0:
-                results = results.append(now, ignore_index=True).drop_duplicates()
-                filepath = path.join(datadir, name_noextension+'_'+today.strftime("%Y%m%d")+'.csv')
-                results.to_csv(filepath, sep='\t', encoding='utf-8')
-
-            del now
-
-            sleep(60*60*8)
-            if today != dt.datetime.today().date():
+            toc = dt.datetime.now()
+            if toc - twelve_hour_tic > dt.timedelta(hours=12):
+                eight_hour_tic = toc
+                broke = True
                 break
+
+        if not broke:
+            sleep((dt.timedelta(hours=12) - (dt.datetime.now() - twelve_hour_tic)).seconds)
+            twelve_hour_tic = dt.datetime.now()
+
+        day_now = dt.datetime.today().date()
+        if today != day_now:
+            today_results = pd.DataFrame()
+            today = day_now

@@ -46,7 +46,7 @@ def save_pid():
 
 
 def generateDateColumn(row):
-    for col in ['datePublished','dateModified','dateCreated']:
+    for col in ['datePublished', 'dateModified', 'dateCreated']:
         try:
             return parser.parse(row[col]).date().strftime("%Y-%m-%d")
         except BaseException as ex:
@@ -92,32 +92,42 @@ def generate_url(host, protocol='http', port=80, directory=''):
     return "%s://%s:%d/%s" % (protocol, host, port, directory)
 
 
-def syntaxnet_api_filter_text(text, types):
+def syntaxnet_api_filter_text(text, types, language):
     res = req(
         'POST',
         generate_url(s_api.api_ip, port=s_api.api_port, directory='v1/parsey-universal-full'),
         data=dict(text=text),
-        headers={'Content-Type': 'text/plain', 'charset': 'utf-8', 'Accept': 'text/plain', 'Content-Language': 'es'}
+        headers={'Content-Type': 'text/plain', 'charset': 'utf-8', 'Accept': 'text/plain',
+                 'Content-Language': language.split('_')[-1]}
     ).text
 
     res = pd.read_table(StringIO(res), sep="\t")
 
-    return pd.np.array(res[[0,3]][~res[3].isin(types)])
+    return pd.np.array(res[[0, 3]][~res[3].isin(types)])
 
 
-def custom_tokenizer(text):
+class CustomTokenizerBuilder:
 
-    sent_tok = load('tokenizers/punkt/spanish.pickle').tokenize
+    lang_dict = dict(es='spanish', en='english')
 
-    filtered_tokens = []
-    for sent in sent_tok(text):
-        tokens = syntaxnet_api_filter_text(
-            sent,
-            ['VERB', 'DET', 'PRON', 'ADV', 'AUX', 'SCONJ', 'ADP']
-        )
-        filtered_tokens += tokens[:, 0].tolist()
+    def __init__(self, lang='lang_es'):
+        self.language = lang
+        self.lang_code = lang.split('_')[-1]
+        self.lang_name = self.lang_dict[self.lang_code]
 
-    return filtered_tokens
+    def __call__(self, text):
+        sent_tok = load('tokenizers/punkt/%s.pickle' % (self.lang_name,)).tokenize
+
+        filtered_tokens = []
+        for sent in sent_tok(text):
+            tokens = syntaxnet_api_filter_text(
+                sent,
+                ['VERB', 'DET', 'PRON', 'ADV', 'AUX', 'SCONJ', 'ADP'],
+                self.lang_code
+            )
+            filtered_tokens += tokens[:, 0].tolist()
+
+        return filtered_tokens
 
 
 class CustomCorpus(Corpus):
@@ -211,12 +221,21 @@ if __name__ == '__main__':
 
         today = dt.datetime.today().date()
 
+        tokenizers = {}
         inputs = set([path.splitext(path.basename(f))[0].split('_')[0] for f in glob(path.join(datadir, "*.csv"))])
         for input_ in inputs:
+
+            idx = re.sub(r'input([0-9]+)', r'\1', input_)
+            input_conf = __import__(path.join(inputdir, 'configinput%s.py' % (idx,)))
+            language = input_conf.language
+
+            if language not in tokenizers:
+                tokenizers.update({language: CustomTokenizerBuilder(language)})
+
             for timeframe in [31, 93, 365]:
 
                 df = pd.DataFrame()
-                for filepath in glob(path.join(datadir, input_+'_*.csv')):
+                for filepath in glob(path.join(datadir, input_ + '_*.csv')):
                     if dt.datetime.strptime(path.splitext(filepath)[0].split('_')[-1], '%Y%m%d').date() > \
                                     today - dt.timedelta(days=timeframe):
                         aux_df = pd.read_csv(filepath, sep='\t', encoding='utf-8')
@@ -243,17 +262,20 @@ if __name__ == '__main__':
                 df.to_csv(finalpath, sep='\t', encoding='utf-8')
 
                 # Load corpus
-                corpus = CustomCorpus(source_file_path=finalpath,
-                                language='spanish',
-                                vectorization=vectorization,
-                                max_relative_frequency=max_tf,
-                                min_absolute_frequency=min_tf,
-                                token_pattern= \
-                                          r'(?u)\b(?:' + \
-                                              r'[a-zA-ZáÁàÀäÄâÂéÉèÈëËêÊíÍìÌïÏîÎóÓòÒöÖôÔúÚùÙüÜûÛñÑçÇ\-]' + \
-                                              r'[a-zA-ZáÁàÀäÄâÂéÉèÈëËêÊíÍìÌïÏîÎóÓòÒöÖôÔúÚùÙüÜûÛñÑçÇ\-]+' + \
-                                            r'|[nNxXyYaAoOeEuU]' + \
-                                          r')\b')
+                corpus = CustomCorpus(
+                    source_file_path=finalpath,
+                    language=tokenizers[language].lang_name,
+                    vectorization=vectorization,
+                    max_relative_frequency=max_tf,
+                    min_absolute_frequency=min_tf,
+                    token_pattern= \
+                              r'(?u)\b(?:' + \
+                                  r'[a-zA-ZáÁàÀäÄâÂéÉèÈëËêÊíÍìÌïÏîÎóÓòÒöÖôÔúÚùÙüÜûÛñÑçÇ\-]' + \
+                                  r'[a-zA-ZáÁàÀäÄâÂéÉèÈëËêÊíÍìÌïÏîÎóÓòÒöÖôÔúÚùÙüÜûÛñÑçÇ\-]+' + \
+                                r'|[nNxXyYaAoOeEuU]' + \
+                              r')\b',
+                    tokenizer=tokenizers[language]
+                )
                 print('corpus size:', corpus.size)
                 print('vocabulary size:', len(corpus.vocabulary))
 

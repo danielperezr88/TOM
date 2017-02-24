@@ -22,7 +22,11 @@ try:
 except BaseException as e:
     pass
 
-from utils import BucketedFileRefresher, retrieve_entire_bucket
+from utils import \
+    BucketedFileRefresher, \
+    maybe_retrieve_entire_bucket, \
+    upload_new_files_to_bucket, \
+    remove_old_files_from_bucket
 
 CONFIG_BUCKET = 'config'
 INPUT_BUCKET = 'inputs'
@@ -42,37 +46,30 @@ def check_pid(pid):
 
 
 def create_configfile_or_replace_existing_keys(file_path, patterns):
-    # Create temp file
     fh, abs_path = mkstemp()
     with open(abs_path, 'w', encoding='utf-8') as new_file:
         if not path.exists(file_path):
             try:
-                for pline in ["%s = %s\n" % (k, str([v[0] if len(v) == 1 else v])[1:-1]) for k, v in
-                              {k: v.replace("'", "").split(',') for k, v in patterns.items()}.items()]:
-                    new_file.write(pline.replace("'", "\""))
+                for pline in ["%s = %r\n" % (k, v) for k, v in patterns.items()]:
+                    new_file.write(pline)
             except AttributeError as ex:
                 print(patterns)
         else:
             with open(file_path) as old_file:
                 for line in old_file:
                     changed = False
-                    for pname, pline in [(k, "%s = %s\n" % (k, str([v[0] if len(v) == 1 else v])[1:-1])) for k, v in
-                                         {k: v.replace("'", "").split(',') for k, v in patterns.items()}.items()]:
+                    for pname, pline in [(k, "%s = %r\n" % (k, v)) for k, v in patterns.items()]:
                         if list(map(lambda x: x.strip(), line.split('=')))[0] == pname:
                             changed = True
-                            new_file.write(pline.replace("'", "\""))
+                            new_file.write(pline)
                     if not changed:
                         new_file.write(line)
-
-            # Remove original file
             remove(file_path)
-
     close(fh)
-    # Move new file
     shutil.move(abs_path, file_path)
 
 
-def create_py_files(searchId, searchValues):
+def create_py_files(searchId, patterns):
 
     destpyfile = path.join("input", "input%d.py" % (searchId,))
     if not path.exists(destpyfile):
@@ -80,7 +77,7 @@ def create_py_files(searchId, searchValues):
 
     configpyfile = path.join("input", "configinput%d.py" % (searchId,))
     if not path.exists(configpyfile):
-        create_configfile_or_replace_existing_keys(configpyfile, dict(keyword_list_filter=searchValues))
+        create_configfile_or_replace_existing_keys(configpyfile, patterns)
 
 
 def stop_py(pid):
@@ -164,8 +161,8 @@ def get_files_to_watch():
 
     inputs = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET)
 
-    for idx, topics in inputs.inputs.items():
-        create_py_files(idx, topics)
+    for idx, patterns in [(i['id'], i) for i in inputs.inputs]:
+        create_py_files(idx, patterns)
 
     return glob(path.join(path.dirname(path.realpath(__file__)), "input", "input[0-9]*.py"))
 
@@ -184,7 +181,7 @@ if __name__ == "__main__":
     datadir = path.join(dirname, "input", "data")
     if not path.exists(datadir):
         makedirs(datadir)
-    retrieve_entire_bucket(INPUT_BUCKET, datadir)
+    maybe_retrieve_entire_bucket(basename=datadir, bucket_prefix=INPUT_BUCKET)
 
     # Maybe create input activation control file
     refresh_and_retrieve_module("topic_model_browser_active_inputs.py", CONFIG_BUCKET,
@@ -194,4 +191,6 @@ if __name__ == "__main__":
     while True:
         inputs = get_files_to_watch()
         maybe_keep_inputs_alive(inputs)
+        upload_new_files_to_bucket(glob_filename='input*.csv', basename=datadir, bucket_prefix=INPUT_BUCKET)
+        remove_old_files_from_bucket(basename=datadir, bucket_prefix=INPUT_BUCKET)
         sleep(300)
