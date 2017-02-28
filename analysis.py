@@ -5,6 +5,7 @@ from glob import glob
 import itertools
 import inspect
 import shutil
+import sys
 import re
 
 from tom_lib.nlp.topic_model import NonNegativeMatrixFactorization
@@ -27,7 +28,7 @@ from time import sleep
 import dateutil.parser as parser
 from requests import request as req
 
-from utils import BucketedFileRefresher
+from utils import BucketedFileRefresher, WEB_URL_REGEX, ANY_URL_REGEX, re_sub
 
 BFR = BucketedFileRefresher()
 filename = "syntaxnet_api_config.py"
@@ -96,14 +97,17 @@ def syntaxnet_api_filter_text(text, types, language):
     res = req(
         'POST',
         generate_url(s_api.api_ip, port=s_api.api_port, directory='v1/parsey-universal-full'),
-        data=dict(text=text),
+        data=text.encode('latin-1', 'ignore'),
         headers={'Content-Type': 'text/plain', 'charset': 'utf-8', 'Accept': 'text/plain',
                  'Content-Language': language.split('_')[-1]}
     ).text
 
-    res = pd.read_table(StringIO(res), sep="\t")
+    if res == '':
+        return pd.np.array([[]])
 
-    return pd.np.array(res[[0, 3]][~res[3].isin(types)])
+    res = pd.read_table(StringIO(res), sep="\t", header=None, quoting=3)
+
+    return pd.np.array(res[[1, 3]][~res[3].isin(types)])
 
 
 class CustomTokenizerBuilder:
@@ -116,16 +120,33 @@ class CustomTokenizerBuilder:
         self.lang_name = self.lang_dict[self.lang_code]
 
     def __call__(self, text):
+        #Language dependant NLTK's sentence-level tokenization
         sent_tok = load('tokenizers/punkt/%s.pickle' % (self.lang_name,)).tokenize
 
         filtered_tokens = []
         for sent in sent_tok(text):
+
+            #Two-step URL cleanup: First, turn URLs into a specific special PROP ("THISWASAURL")
+            sent = re_sub(WEB_URL_REGEX, 'THISWASAURL', sent)
+            sent = re_sub(ANY_URL_REGEX, 'THISWASAURL', sent)
+
+            #Make sure there's a space before [,.;:?!], but respecting acronyms
+            sent = re_sub(r'(?:(\.)(\S[^\.\,\:\;\!\?])|([\,\:\;\!\?])(\S))', r'\1\3 \2\4', sent)
+
+            #Word-level tokenization and POS-based filtering. All non topic-central words filtered.
             tokens = syntaxnet_api_filter_text(
                 sent,
-                ['VERB', 'DET', 'PRON', 'ADV', 'AUX', 'SCONJ', 'ADP'],
+                ['VERB', 'DET', 'PRON', 'ADV', 'AUX', 'SCONJ', 'ADP', 'NUM', 'SYM', 'X', 'PUNCT'],
                 self.lang_code
             )
-            filtered_tokens += tokens[:, 0].tolist()
+            if tokens.size > 0:
+                filtered_tokens += tokens[:, 0].tolist()
+
+        # Two-step URL cleanup: Second, remove special PROP from tokens, if present
+        try:
+            filtered_tokens.remove('THISWASAURL')
+        except ValueError as ex:
+            pass
 
         return filtered_tokens
 
@@ -211,6 +232,8 @@ if __name__ == '__main__':
     if not path.exists(pickledir):
         makedirs(pickledir)
 
+    sys.path.append(inputdir)
+
     while True:
 
         # Clean the data directory
@@ -226,7 +249,7 @@ if __name__ == '__main__':
         for input_ in inputs:
 
             idx = re.sub(r'input([0-9]+)', r'\1', input_)
-            input_conf = __import__(path.join(inputdir, 'configinput%s.py' % (idx,)))
+            input_conf = __import__('configinput%s' % (idx,))
             language = input_conf.language
 
             if language not in tokenizers:

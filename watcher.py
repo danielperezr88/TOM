@@ -135,6 +135,10 @@ def refresh_and_retrieve_module(filename, bucket=None, default=None):
 
         except BaseException as ex:
 
+            if path.exists(filepath):
+                module = __import__(path.splitext(filename)[0])
+                return reload(module)
+
             if default is not None:
                 create_configfile_or_replace_existing_keys(filepath, default)
                 continue
@@ -148,7 +152,7 @@ def refresh_and_retrieve_module(filename, bucket=None, default=None):
 def maybe_keep_inputs_alive(pyfiles):
 
     active = refresh_and_retrieve_module("topic_model_browser_active_inputs.py", CONFIG_BUCKET,
-                                         dict(active=('1,'*len(pyfiles))[:-1]))
+                                         dict(active=[1]*len(pyfiles)))
 
     for idx, filepath in enumerate(pyfiles):
         if int(active.active[idx]) != 0:
@@ -185,7 +189,7 @@ if __name__ == "__main__":
 
     # Maybe create input activation control file
     refresh_and_retrieve_module("topic_model_browser_active_inputs.py", CONFIG_BUCKET,
-                                dict(active=('1,'*len(get_files_to_watch()))[:-1]))
+                                dict(active=[1]*len(get_files_to_watch())))
 
     # Main loop
     while True:
