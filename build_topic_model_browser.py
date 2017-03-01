@@ -78,7 +78,7 @@ def generate_url(host, protocol='http', port=80, directory=''):
 
 def run():
     flask_options = dict(port=PORT, host='0.0.0.0', debug=True)
-    app.secret_key = hexlify(bytes('development_', encoding='latin-1'))#hexlify(urandom(24))
+    app.secret_key = hexlify(hexlify(urandom(24)))#bytes('development_', encoding='latin-1')
     app.run(**flask_options)
 
 
@@ -114,7 +114,7 @@ app = Flask(__name__, static_folder='browser/static', template_folder='browser/t
 QRcode(app)
 
 MY_IP = req.get(generate_url('jsonip.com')).json()['ip']
-PORT = 88
+PORT = 80
 
 
 @app.route('/', methods=['GET'])
