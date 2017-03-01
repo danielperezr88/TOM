@@ -286,7 +286,7 @@ div#form-inner-wrapper {
     z-index: -1;
 }*/
 
-.login form, .new_stream form, .test_api form, .test_api #result {
+.login form, .new_stream form, .test_api form, .new_search form, .test_api #result {
     margin: 1.5em auto 3em auto;
     max-width: 240px;
     padding: 0.3em;
@@ -305,7 +305,8 @@ div#form-inner-wrapper {
     margin-top: 0;
 }
 
-.login form > dl > dd:last-child, .new_stream form > dl > dd:last-child, .test_api form > dl > dd:last-child {
+.login form > dl > dd:last-child, .new_stream form > dl > dd:last-child, .test_api form > dl > dd:last-child,
+.new_search form > dl > dd:last-child {
     margin-top: 19px;
     margin-left: 0;
     position: relative;
@@ -314,7 +315,8 @@ div#form-inner-wrapper {
 
 .login form > dl > dd:last-child > input[type="submit"],
 .new_stream form > dl > dd:last-child > input[type="submit"],
-.test_api form > dl > dd:last-child > input[type="submit"] {
+.test_api form > dl > dd:last-child > input[type="submit"],
+.new_search form > dl > dd:last-child > input[type="submit"] {
     position: absolute;
     margin: auto;
     width: 30%;
@@ -327,13 +329,15 @@ div#form-inner-wrapper {
 
 .login form > dl > dt:not(:first-child),
 .new_stream form > dl > dt:not(:first-child),
-.test_api form > dl > dt:not(:first-child) {
+.test_api form > dl > dt:not(:first-child),
+.new_search form > dl > dt:not(:first-child) {
     margin-top: 0.5em;
 }
 
 .login form > dl > dt,
 .new_stream form > dl > dt,
-.test_api form > dl > dt {
+.test_api form > dl > dt,
+.new_search form > dl > dt {
     margin-bottom: 0.3em;
 }
 
@@ -447,9 +451,9 @@ footer > form {display:inline-block;}
     margin-left: 0.25em;
 }
 
-button.play, button.pause {
-    position: absolute;
-    bottom: 15px;
+button.play:not(.table_button), button.pause:not(.table_button), button.add:not(.table_button) {
+    position: fixed;
+    bottom: 82px;
     left: 15px;
     border-radius: 5px;
     line-height: 0px;
@@ -463,6 +467,24 @@ button.play:before {
 button.pause:before {
     font-family: 'FontAwesome';
     content: '\f04c';
+}
+button.add:before {
+    font-family: 'FontAwesome';
+    content: '\f067';
+}
+
+button.table_button {
+    border-radius: 5px;
+    line-height: 2px;
+    width: 21px;
+    z-index: 10;
+    background: none;
+    border-width: 1px;
+    color: rgb(24,30,37);
+    border-color: rgb(24,30,37);
+    cursor: pointer;
+    border-style: solid;
+    padding-left: 5px;
 }
 
 div.flash {
@@ -488,11 +510,11 @@ div.flash {
   margin-right: 0.5em;
 }
 
-.flash.error_ajax{
+.flash.error_ajax, .flash.error{
   background-color: rgba(255,25,25, 0.3);
   border-bottom: solid 2px rgba(255,25,25,0.7);
 }
-.flash.error_ajax:before{
+.flash.error_ajax:before, .flash.error:before{
   content: "\f0e7";
   font-family: 'FontAwesome';
   font: normal normal normal 14px/1 FontAwesome;
@@ -503,11 +525,11 @@ div.flash {
   margin-right: 0.5em;
 }
 
-.flash.success_ajax{
+.flash.success_ajax, .flash.success{
   background-color: rgba(25,255,25,0.3);
   border-bottom: solid 2px rgba(25,255,25,0.7);
 }
-.flash.success_ajax:before{
+.flash.success_ajax:before, .flash.success:before{
   content: "\f164";
   font-family: 'FontAwesome';
   font: normal normal normal 14px/1 FontAwesome;
@@ -749,12 +771,12 @@ button{
   }
 }
 @media screen and (max-width: 1120px) and (min-width: 861px){
-  #breadcrumbs {
+  #breadcrumbs.headerized {
     margin-top: 38.2px;
   }
 }
 @media screen and (max-width: 860px) and (min-width: 731px){
-  #breadcrumbs {
+  #breadcrumbs.headerized {
     margin-top: 25.8px;
   }
 }
@@ -772,7 +794,7 @@ button{
     *position: absolute;
     *width: 275px;
   }
-  #breadcrumbs {
+  #breadcrumbs.headerized {
     margin-top: 0px;
   }
 }
@@ -783,7 +805,7 @@ button{
     border-width: 0px 0px 1px 0px;
     border-radius: 0px;
   }
-  #breadcrumbs {
+  #breadcrumbs.headerized {
     margin-top: 25.8px;
   }
   #header > p {

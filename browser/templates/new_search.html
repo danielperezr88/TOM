@@ -1,0 +1,32 @@
+{% extends "index.html" %}{% set headerized_class = 'non-headerized' %}
+{% block header_extra %}
+<link href="{{ url_for('static', filename ='css/jquery.dataTables/jquery.dataTables.min.css') }}" rel="stylesheet" type="text/css">
+<script src="{{ url_for('static', filename ='js/jquery.dataTables/jquery.dataTables.min.js') }}" charset="utf-8"></script>
+<style>
+#searchs tbody tr {
+    text-align: left;
+}
+</style>
+{% endblock %}
+{% block breadcrumbs %}
+<span onclick="window.location.href='/new_search'">searchs</span>
+{% endblock %}
+{% block body %}
+<form action="{{ url_for('new_search') }}" method=post>
+  <dl>
+    <dt>Query Name:
+    <dd><input type=text name=name>
+    <dt>Query (Google Format):
+    <dd><input type=text name=query>
+    <dt>Language:
+      <dd>
+      <select name=language>
+        <option value="lang_en">English</option>
+        <option value="lang_es">Spanish</option>
+      </select>
+    <dd><input type=submit value="Add query">
+  </dl>
+</form>
+{% endblock %}
+{% block footer_extra %}
+{% endblock %}

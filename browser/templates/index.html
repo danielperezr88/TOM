@@ -17,6 +17,7 @@
           {% else %}
             <li><a href="{{ url_for('topic_cloud', iid=(iid or 0), tf=(tf or 31)) }}">Topic Cloud</a></li>
             <li><a href="{{ url_for('vocabulary', iid=(iid or 0), tf=(tf or 31)) }}">Vocabulary</a></li>
+            <li><a href="{{ url_for('searches') }}">Manage Searches</a></li>
             <li><a href="{{ url_for('about') }}">About Us</a></li>
             <li><a href="{{ url_for('logout') }}">Log out</a></li>
           {% endif %}
@@ -44,7 +45,7 @@
   <div id="content">
     <div id="form-outer-wrapper">
       <div id="form-inner-wrapper">
-        <div id="breadcrumbs">
+        <div id="breadcrumbs" class="{{ headerized_class or "headerized" }}">
           {% block breadcrumbs %}
             <span onclick="window.location.href='/{{ iid }}/{{ tf }}/index'">{{ inputs[iid|int]['name'] }}</span><nobr>></nobr>
             <span onclick="window.location.href='/{{ iid }}/{{ tf }}/index'">index</span>

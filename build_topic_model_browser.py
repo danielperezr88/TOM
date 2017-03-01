@@ -4,6 +4,7 @@ from binascii import hexlify
 import inspect
 
 import pickle
+import json
 
 import requests as req
 
@@ -77,7 +78,7 @@ def generate_url(host, protocol='http', port=80, directory=''):
 
 def run():
     flask_options = dict(port=PORT, host='0.0.0.0', debug=True)
-    app.secret_key = hexlify(urandom(24))
+    app.secret_key = hexlify(bytes('development_', encoding='latin-1'))#hexlify(urandom(24))
     app.run(**flask_options)
 
 
@@ -99,12 +100,21 @@ def refresh_and_retrieve_module(filename, bucket=None):
         raise ImportError(msg)
 
 
+def add_search_term(name, query, language):
+    print('\nSearch term added:\n\n\tName: %s\n\tQuery: %s\n\tLanguage: %s\n\n' % (name, query, language))
+    return True
+
+def change_active_state(id, active):
+    print('\nActive State Changed:\n\n\tId: %d\n\tState: %s\n\n' % (int(id[0]), "active" if int(active[0]) else "inactive"))
+    return True
+
+
 # Flask Web server
 app = Flask(__name__, static_folder='browser/static', template_folder='browser/templates')
 QRcode(app)
 
 MY_IP = req.get(generate_url('jsonip.com')).json()['ip']
-PORT = 80
+PORT = 88
 
 
 @app.route('/', methods=['GET'])
@@ -147,6 +157,34 @@ def logout():
     del session['username']
     session['logged_in'] = False
     return redirect(url_for('index'))
+
+
+@app.route('/searches', methods=['GET'])
+def searches():
+
+    no_impostors_wanted(session)
+
+    input_dir = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET).inputs
+    active_inputs = refresh_and_retrieve_module('topic_model_browser_active_inputs.py', CONFIG_BUCKET).active
+
+    return render_template('searches.html', searches=input_dir, active=active_inputs)
+
+
+@app.route('/new_search', methods=['GET', 'POST'])
+def new_search():
+
+    no_impostors_wanted(session)
+
+    if request.method == 'POST':
+        s_name = request.form['name']
+        s_query = request.form['query']
+        s_language = request.form['language']
+        if(add_search_term(name=s_name, query=s_query, language=s_language)):
+            flash('Search query correctly set', 'success')
+            return redirect(url_for('searches'))
+        else:
+            flash('Something went wrong. Please check everything carefuly.', 'error')
+    return render_template('new_search.html')
 
 
 @app.route('/<iid>/<tf>/index', methods=['GET'])
@@ -297,7 +335,16 @@ def word_details(iid, tf, wid):
 @app.route('/about', methods=['GET'])
 def about():
 
-    return render_template('about.html')
+    return render_template('about.html', headerized_class="non-headerized")
+
+
+
+@app.route('/api/searches/set_active_state', methods=['POST'])
+def api_searches_set_active_state():
+
+    no_impostors_wanted(session)
+
+    return json.dumps(change_active_state(**request.form))
 
 
 @app.errorhandler(401)

@@ -1,0 +1,103 @@
+{% extends "index.html" %}{% set headerized_class = 'non-headerized' %}
+{% block header_extra %}
+<link href="{{ url_for('static', filename ='css/jquery.dataTables/jquery.dataTables.min.css') }}" rel="stylesheet" type="text/css">
+<script src="{{ url_for('static', filename ='js/jquery.dataTables/jquery.dataTables.min.js') }}" charset="utf-8"></script>
+<style>
+#searchs tbody tr {
+    text-align: left;
+}
+</style>
+{% endblock %}
+{% block breadcrumbs %}
+<span onclick="window.location.href='/searches'">searches</span>
+{% endblock %}
+{% block body %}
+<div id="wrap" style="width:90%;">
+  <table id="searches" class="display" cellspacing="0" width="100%">
+    <thead>
+      <tr>
+        <th>Id</th>
+        <th>Name</th>
+        <th>Query</th>
+        <th>Language</th>
+        <th>Options</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for search in searches %}
+        {% set active_class = ["play","pause"][active[search['id']]|int] %}
+        <tr>
+          <td>{{ search['id'] }}</td>
+          <td>{{ search['name'] }}</td>
+          <td>{{ search['query'] }}</td>
+          <td>{{ search['language'].split('_')[-1] }}</td>
+          <td>
+            <button class="table_button {{ active_class }}" alt="{{ active_class }}" id="{{ search['id'] }}"></button>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <button class="add"><span style="display:none; margin-left: 4px;">Add new search query</span></button>
+</div>
+{% endblock %}
+{% block footer_extra %}
+<script>
+$(document).ready(function() {
+  var table = $('#searches').DataTable({
+    columnDefs: [
+      {
+        "targets": [0],
+        "visible": false,
+        "searchable": false
+      }
+    ]
+  });
+});
+</script>
+<script>
+$(document).ready(function() {
+  var button_msg = $('button.add > span');
+  var button = $('button.add');
+  button.on("mouseenter", function(){button_msg.fadeIn(500);});
+  button.on("mouseleave", function(){button_msg.fadeOut(500);});
+  button.on("click", function(){window.location.href='/new_search'});
+});
+</script>
+<script>
+$(document).ready(function(){
+  $('button.table_button').on('click', function(){
+    var th = $(this)
+    if(th.hasClass('play')){
+        $.ajax({
+          url:'/api/searches/set_active_state',
+          method:'POST',
+          data: {id:th.attr('id'),active:1},
+          success: function(data){
+            if(JSON.parse(data)){
+              jsFlash('success','Successfully activated search term');
+              th.removeClass('play').addClass('pause');
+            }else{
+              jsFlash('error','Error on search term activation');
+            }
+          }
+        });
+    } else {
+        $.ajax({
+          url:'/api/searches/set_active_state',
+          method:'POST',
+          data: {id:th.attr('id'),active:0},
+          success: function(data){
+            if(JSON.parse(data)){
+              jsFlash('success','Successfully deactivated search term');
+              th.removeClass('pause').addClass('play');
+            }else{
+              jsFlash('error','Error on search term deactivation');
+            }
+          }
+        });
+    }
+  })
+})
+</script>
+{% endblock %}
