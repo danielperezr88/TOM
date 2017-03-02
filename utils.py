@@ -1,4 +1,4 @@
-# coding: utf-8
+# -*- coding: UTF-8 -*-
 from sys import modules
 from glob import glob
 from os import path, remove, close

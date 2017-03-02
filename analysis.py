@@ -16,6 +16,9 @@ from nltk.corpus import stopwords
 from nltk.data import load
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 
+import subprocess
+import shlex
+
 import pickle
 import codecs
 
@@ -110,6 +113,17 @@ def syntaxnet_api_filter_text(text, types, language):
     return pd.np.array(res[[1, 3]][~res[3].isin(types)])
 
 
+def pattern_filter_text(text, types, language):
+    command = shlex.split('%s "%s" --language %s --types %s' %
+                          (path.join(dirname, 'pattern_pos.py'), text, language, ' '.join(types)))
+    command = [c.encode('latin-1') for c in command]
+    process = subprocess.Popen(command, stdout=subprocess.PIPE)
+    result = process.communicate()[0].decode('latin-1')
+    if result:
+        return pd.read_table(StringIO(result), sep='\t', header=None, quoting=3).values
+    else:
+        return pd.np.array([[]])
+
 class CustomTokenizerBuilder:
 
     lang_dict = dict(es='spanish', en='english')
@@ -134,9 +148,12 @@ class CustomTokenizerBuilder:
             sent = re_sub(r'(?:(\.)(\S[^\.\,\:\;\!\?])|([\,\:\;\!\?])(\S))', r'\1\3 \2\4', sent)
 
             #Word-level tokenization and POS-based filtering. All non topic-central words filtered.
-            tokens = syntaxnet_api_filter_text(
+            #tokens = syntaxnet_api_filter_text(
+            tokens = pattern_filter_text(
                 sent,
-                ['VERB', 'DET', 'PRON', 'ADV', 'AUX', 'SCONJ', 'ADP', 'NUM', 'SYM', 'X', 'PUNCT'],
+                ['VERB', 'DET', 'PRON', 'ADV', 'AUX', 'SCONJ', 'ADP', 'NUM', 'SYM', 'X', 'PUNCT', 'VB', 'DT', 'CC',
+                 'CD', 'IN', 'LS', 'MD', 'PDT', 'POS', 'PRP', 'PRP$', 'RB', 'RBR', 'RBS', 'RP', 'TO', 'UH', 'VB',
+                 'VBZ', 'VBP', 'VBD', 'WDT', 'WP', 'WP$', 'WRB', '.', ',', ':', '(', ')'],
                 self.lang_code
             )
             if tokens.size > 0:

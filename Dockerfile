@@ -4,6 +4,7 @@ MAINTAINER danielperezr88 <danielperezr88@gmail.com>
 
 # This installs python2 too
 RUN apt-get update && apt-get install -y \
+        python-dev \
         supervisor \
         git
 RUN mkdir -p /var/log/supervisor
@@ -17,15 +18,17 @@ RUN curl -SL 'https://bootstrap.pypa.io/get-pip.py' | python2 \
 	&& patch -p1 < pip_shebang_patch.txt
 
 RUN pip2 install supervisor && \
-    pip2 install superlance==1.0.0
+    pip2 install superlance==1.0.0 && \
+    pip2 install pattern && \
+    pip2 install pandas
 
 # Download Observatory
-RUN curl -fSL "https://github.com/danielperezr88/TOM/archive/v1.10.tar.gz" -o TOM.tar.gz && \
+RUN curl -fSL "https://github.com/danielperezr88/TOM/archive/v2.0.tar.gz" -o TOM.tar.gz && \
 	tar -xf TOM.tar.gz -C . && \
 	mkdir /app && \
-	mv TOM-1.10/* /app/ && \
+	mv TOM-2.0/* /app/ && \
 	rm TOM.tar.gz && \
-	rm -rf TOM-1.10 && \
+	rm -rf TOM-2.0 && \
 	mv /app/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 	
 RUN curl -sSO https://dl.google.com/cloudagents/install-logging-agent.sh -o install-logging-agent.sh && \
