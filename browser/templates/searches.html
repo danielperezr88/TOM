@@ -3,7 +3,7 @@
 <link href="{{ url_for('static', filename ='css/jquery.dataTables/jquery.dataTables.min.css') }}" rel="stylesheet" type="text/css">
 <script src="{{ url_for('static', filename ='js/jquery.dataTables/jquery.dataTables.min.js') }}" charset="utf-8"></script>
 <style>
-#searchs tbody tr {
+#searches tbody tr {
     text-align: left;
 }
 </style>
@@ -25,7 +25,7 @@
     </thead>
     <tbody>
       {% for search in searches %}
-        {% set active_class = ["play","pause"][active[search['id']]|int] %}
+        {% set active_class = ["play","pause"][active[search['id']]] %}
         <tr>
           <td>{{ search['id'] }}</td>
           <td>{{ search['name'] }}</td>
@@ -53,22 +53,11 @@ $(document).ready(function() {
       }
     ]
   });
-});
-</script>
-<script>
-$(document).ready(function() {
-  var button_msg = $('button.add > span');
-  var button = $('button.add');
-  button.on("mouseenter", function(){button_msg.fadeIn(500);});
-  button.on("mouseleave", function(){button_msg.fadeOut(500);});
-  button.on("click", function(){window.location.href='/new_search'});
-});
-</script>
-<script>
-$(document).ready(function(){
-  $('button.table_button').on('click', function(){
-    var th = $(this)
-    if(th.hasClass('play')){
+
+  function add_buttons_click_event(){
+    $('button.table_button').unbind('click').on('click', function(){
+      var th = $(this)
+      if(th.hasClass('play')){
         $.ajax({
           url:'/api/searches/set_active_state',
           method:'POST',
@@ -80,9 +69,12 @@ $(document).ready(function(){
             }else{
               jsFlash('error','Error on search term activation');
             }
+          },
+          error: function(){
+            jsFlash('error','Server Error. Try again later. If this persists, contact system administrator.');
           }
         });
-    } else {
+      } else {
         $.ajax({
           url:'/api/searches/set_active_state',
           method:'POST',
@@ -94,10 +86,26 @@ $(document).ready(function(){
             }else{
               jsFlash('error','Error on search term deactivation');
             }
+          },
+          error: function(){
+            jsFlash('error','Server Error. Try again later. If this persists, contact system administrator.');
           }
         });
-    }
-  })
-})
+      }
+    });
+  }
+
+  $('#searches').on( 'page.dt draw.dt init.dt', add_buttons_click_event).trigger('draw');
+
+});
+</script>
+<script>
+$(document).ready(function() {
+  var button_msg = $('button.add > span');
+  var button = $('button.add');
+  button.on("mouseenter", function(){button_msg.fadeIn(500);});
+  button.on("mouseleave", function(){button_msg.fadeOut(500);});
+  button.on("click", function(){window.location.href='/new_search'});
+});
 </script>
 {% endblock %}

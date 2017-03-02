@@ -89,6 +89,9 @@ class NewsArticleScraper:
             cntr += 1
             sleep(101)
 
+        if page is None:
+            return None
+
         response_data = json.loads(page.text)
 
         if 'items' not in response_data:
@@ -227,15 +230,21 @@ if __name__ == '__main__':
     """Check everything every 12 hours"""
     while True:
 
-        broke = False
+        restart = api_error = False
 
-        now = pd.DataFrame(scraper(today))
-        if now.size > 0:
-            today_results = today_results.append(now, ignore_index=True).drop_duplicates()
-            filepath = path.join(datadir, name_noextension + '_' + today.strftime("%Y%m%d") + '.csv')
-            today_results.to_csv(filepath, sep='\t', encoding='utf-8')
+        scraped_now = scraper(today)
+        api_error = scraped_now is None
 
-        del now
+        if not api_error:
+            now = pd.DataFrame(scraped_now)
+            if now.size > 0:
+                today_results = today_results.append(now, ignore_index=True).drop_duplicates()
+                filepath = path.join(datadir, name_noextension + '_' + today.strftime("%Y%m%d") + '.csv')
+                today_results.to_csv(filepath, sep='\t', encoding='utf-8')
+
+            del now
+
+        del scraped_now
 
         """Remove files older than 1 year"""
         dates = []
@@ -249,8 +258,8 @@ if __name__ == '__main__':
             dates += [date]
 
         """Maybe add non-existent file"""
-        for day in [today - dt.timedelta(days=d) for d in range(365)]:
-            if day not in dates:
+        for day in [today - dt.timedelta(days=d) for d in range(1, 365)]:
+            if day not in dates and not api_error:
 
                 # One call per input every 5 minutes at most
                 toc = dt.datetime.now()
@@ -259,16 +268,22 @@ if __name__ == '__main__':
                 five_min_tic = dt.datetime.now()
 
                 filepath = path.join(datadir, name_noextension + '_' + day.strftime("%Y%m%d") + '.csv')
+
                 scraped = scraper(day)
-                pd.DataFrame(scraped).to_csv(filepath, sep='\t', encoding='utf-8')
+                api_error = scraped is None
+                if not api_error:
+                    pd.DataFrame(scraped).to_csv(filepath, sep='\t', encoding='utf-8')
 
             toc = dt.datetime.now()
             if toc - twelve_hour_tic > dt.timedelta(hours=12):
                 eight_hour_tic = toc
-                broke = True
+                restart = True
                 break
 
-        if not broke:
+            if api_error:
+                break
+
+        if not restart:
             sleep((dt.timedelta(hours=12) - (dt.datetime.now() - twelve_hour_tic)).seconds)
             twelve_hour_tic = dt.datetime.now()
 

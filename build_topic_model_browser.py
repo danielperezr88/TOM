@@ -1,5 +1,5 @@
 # coding: utf-8
-from os import path, urandom, getpid
+from os import path, urandom, getpid, remove
 from binascii import hexlify
 import inspect
 
@@ -15,7 +15,9 @@ from hashlib import sha512
 
 import logging
 
-from utils import BucketedFileRefresher
+from utils import BucketedFileRefresher, \
+    create_configfile_or_replace_existing_keys
+
 from importlib import reload
 
 from analysis import CustomCorpus
@@ -77,8 +79,8 @@ def generate_url(host, protocol='http', port=80, directory=''):
 
 
 def run():
-    flask_options = dict(port=PORT, host='0.0.0.0', debug=True)
-    app.secret_key = hexlify(hexlify(urandom(24)))#bytes('development_', encoding='latin-1')
+    flask_options = dict(port=PORT, host='0.0.0.0')
+    app.secret_key = hexlify(urandom(24))#hexlify(bytes('development_', encoding='latin-1'))
     app.run(**flask_options)
 
 
@@ -101,11 +103,46 @@ def refresh_and_retrieve_module(filename, bucket=None):
 
 
 def add_search_term(name, query, language):
-    print('\nSearch term added:\n\n\tName: %s\n\tQuery: %s\n\tLanguage: %s\n\n' % (name, query, language))
+
+    inputs = reload(__import__('topic_model_browser_config')).inputs
+    active = reload(__import__('topic_model_browser_active_inputs')).active
+
+    try:
+        create_configfile_or_replace_existing_keys('topic_model_browser_config.py', dict(inputs=inputs + [dict(
+            id=inputs[-1]['id']+1,
+            name=name,
+            query=query,
+            language=language
+        )]))
+    except Exception as ex:
+        remove('topic_model_browser_config.py')
+        create_configfile_or_replace_existing_keys('topic_model_browser_config.py', dict(inputs=inputs))
+        return False
+
+    try:
+        create_configfile_or_replace_existing_keys('topic_model_browser_active_inputs.py', dict(active=active + [1]))
+    except Exception as ex:
+        remove('topic_model_browser_active_inputs.py')
+        create_configfile_or_replace_existing_keys('topic_model_browser_active_inputs.py', dict(active=active))
+        return False
+
+    #print('\nSearch term added:\n\n\tName: %s\n\tQuery: %s\n\tLanguage: %s\n\n' % (name, query, language))
     return True
 
 def change_active_state(id, active):
-    print('\nActive State Changed:\n\n\tId: %d\n\tState: %s\n\n' % (int(id[0]), "active" if int(active[0]) else "inactive"))
+
+    active_ = reload(__import__('topic_model_browser_active_inputs')).active
+    aux = active_
+    aux[int(id[0])] = int(active[0])
+
+    try:
+        create_configfile_or_replace_existing_keys('topic_model_browser_active_inputs.py', dict(active=aux))
+    except Exception as ex:
+        remove('topic_model_browser_active_inputs.py')
+        create_configfile_or_replace_existing_keys('topic_model_browser_active_inputs.py', dict(active=active_))
+        return False
+
+    #print('\nActive State Changed:\n\n\tId: %d\n\tState: %s\n\n' % (int(id[0]), "active" if int(active[0]) else "inactive"))
     return True
 
 
@@ -343,8 +380,14 @@ def about():
 def api_searches_set_active_state():
 
     no_impostors_wanted(session)
-
+    print(request.form)
     return json.dumps(change_active_state(**request.form))
+
+
+@app.route('/heartbeat', methods=['GET'])
+def heartbeat():
+
+    return 'beating', 200
 
 
 @app.errorhandler(401)

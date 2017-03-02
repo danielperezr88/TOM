@@ -1,9 +1,12 @@
 # coding: utf-8
 from sys import modules
 from glob import glob
-from os import path
+from os import path, remove, close
 import logging
+import shutil
 import re
+
+from tempfile import mkstemp
 
 try:
     from google.protobuf import timestamp_pb2
@@ -176,8 +179,28 @@ def maybe_retrieve_entire_bucket(basename='', client_obj=None, bucket_prefix=Non
     return client_obj
 
 
-
-
+def create_configfile_or_replace_existing_keys(file_path, patterns):
+    fh, abs_path = mkstemp()
+    with open(abs_path, 'w', encoding='utf-8') as new_file:
+        if not path.exists(file_path):
+            try:
+                for pline in ["%s = %r\n" % (k, v) for k, v in patterns.items()]:
+                    new_file.write(pline)
+            except AttributeError as ex:
+                print(patterns)
+        else:
+            with open(file_path) as old_file:
+                for line in old_file:
+                    changed = False
+                    for pname, pline in [(k, "%s = %r\n" % (k, v)) for k, v in patterns.items()]:
+                        if list(map(lambda x: x.strip(), line.split('=')))[0] == pname:
+                            changed = True
+                            new_file.write(pline)
+                    if not changed:
+                        new_file.write(line)
+            remove(file_path)
+    close(fh)
+    shutil.move(abs_path, file_path)
 
 
 """

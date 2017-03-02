@@ -1,14 +1,12 @@
 # coding: utf-8
-from os import path, getpid, remove, close, popen, makedirs
+from os import path, getpid, remove, popen, makedirs
 from sys import executable as pythonPath
-from sys import modules
 
 from time import sleep
 from glob import glob
 
 import shutil
 import inspect
-from tempfile import mkstemp
 
 import logging
 
@@ -26,7 +24,8 @@ from utils import \
     BucketedFileRefresher, \
     maybe_retrieve_entire_bucket, \
     upload_new_files_to_bucket, \
-    remove_old_files_from_bucket
+    remove_old_files_from_bucket, \
+    create_configfile_or_replace_existing_keys
 
 CONFIG_BUCKET = 'config'
 INPUT_BUCKET = 'inputs'
@@ -43,30 +42,6 @@ def save_pid():
 
 def check_pid(pid):
     return int(popen("ps -p %d --no-headers | wc -l" % (int(pid) if len(pid) > 0 else 0,)).read().strip()) == 1
-
-
-def create_configfile_or_replace_existing_keys(file_path, patterns):
-    fh, abs_path = mkstemp()
-    with open(abs_path, 'w', encoding='utf-8') as new_file:
-        if not path.exists(file_path):
-            try:
-                for pline in ["%s = %r\n" % (k, v) for k, v in patterns.items()]:
-                    new_file.write(pline)
-            except AttributeError as ex:
-                print(patterns)
-        else:
-            with open(file_path) as old_file:
-                for line in old_file:
-                    changed = False
-                    for pname, pline in [(k, "%s = %r\n" % (k, v)) for k, v in patterns.items()]:
-                        if list(map(lambda x: x.strip(), line.split('=')))[0] == pname:
-                            changed = True
-                            new_file.write(pline)
-                    if not changed:
-                        new_file.write(line)
-            remove(file_path)
-    close(fh)
-    shutil.move(abs_path, file_path)
 
 
 def create_py_files(searchId, patterns):
@@ -102,7 +77,7 @@ def maybe_stop_py(filepath):
         remove(pidfile)
 
 
-def maybe_launch_py(filepath):
+def maybe_launch_py(filepath, hatch_rate=2):
     pidfile = filepath + ".pid"
     if path.exists(pidfile):
         pid_data = ''
@@ -114,10 +89,12 @@ def maybe_launch_py(filepath):
             remove(pidfile)
             with open(pidfile, 'w') as f:
                 f.write(pid)
+            sleep(1./hatch_rate)
     else:
         pid = launch_py(filepath)
         with open(pidfile, 'w') as f:
             f.write(pid)
+        sleep(1./hatch_rate)
 
 
 def refresh_and_retrieve_module(filename, bucket=None, default=None):
@@ -149,14 +126,14 @@ def refresh_and_retrieve_module(filename, bucket=None, default=None):
 
 
 # def keep_processes_alive(pyfiles):
-def maybe_keep_inputs_alive(pyfiles):
+def maybe_keep_inputs_alive(pyfiles, hatch_rate):
 
     active = refresh_and_retrieve_module("topic_model_browser_active_inputs.py", CONFIG_BUCKET,
-                                         dict(active=[1]*len(pyfiles)))
+                                         dict(active=[1]*len(pyfiles))).active
 
     for idx, filepath in enumerate(pyfiles):
-        if int(active.active[idx]) != 0:
-            maybe_launch_py(filepath)
+        if active[idx] != 0:
+            maybe_launch_py(filepath, hatch_rate)
         else:
             maybe_stop_py(filepath)
 
@@ -194,7 +171,7 @@ if __name__ == "__main__":
     # Main loop
     while True:
         inputs = get_files_to_watch()
-        maybe_keep_inputs_alive(inputs)
+        maybe_keep_inputs_alive(inputs, hatch_rate=2)
         upload_new_files_to_bucket(glob_filename='input*.csv', basename=datadir, bucket_prefix=INPUT_BUCKET)
         remove_old_files_from_bucket(basename=datadir, bucket_prefix=INPUT_BUCKET)
         sleep(300)
