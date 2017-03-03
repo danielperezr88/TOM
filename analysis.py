@@ -168,7 +168,7 @@ class CustomTokenizerBuilder:
             filtered_tokens.remove('THISWASAURL')
 
         for token in [t for t in filtered_tokens if re.match(r'[^a-zA-Z]+',t) is not None]:
-            filtered.tokens.remove(token)
+            filtered_tokens.remove(token)
 
         return filtered_tokens
 
