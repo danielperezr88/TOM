@@ -52,7 +52,7 @@
       Chart Search term :
         <select name="term_select" onChange="window.location.href='/'+this.value+'/{{ tf }}/topic/{{ topic_id }}'">
         {% for input in inputs %}
-          <option value="{{ input['id'] }}"{% if iid|int is equalto input['id'] %} selected{% endif %}>{{ input['name'] }}</option>
+          <option value="{{ input['id'] }}"{% if iid|int == input['id'] %} selected{% endif %}>{{ input['name'] }}</option>
         {% endfor %}
       </select>
     </p>

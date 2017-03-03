@@ -40,6 +40,7 @@ BFR("config", filename, filepath)
 
 import syntaxnet_api_config as s_api
 
+emoji_pattern = re.compile(u"[\u0100-\uFFFF\U0001F000-\U0001F1FF\U0001F300-\U0001F64F\U0001F680-\U0001F6FF\U0001F700-\U0001FFFF\U000FE000-\U000FEFFF]+", flags=re.UNICODE)
 
 def save_pid():
     """Save pid into a file: filename.pid."""
@@ -114,6 +115,10 @@ def syntaxnet_api_filter_text(text, types, language):
 
 
 def pattern_filter_text(text, types, language):
+
+    text = emoji_pattern.sub(r'', text)
+    text = re.sub(r'\"',r'',text)
+
     command = shlex.split('%s "%s" --language %s --types %s' %
                           (path.join(dirname, 'pattern_pos.py'), text, language, ' '.join(types)))
     command = [c.encode('latin-1') for c in command]
@@ -159,11 +164,11 @@ class CustomTokenizerBuilder:
             if tokens.size > 0:
                 filtered_tokens += tokens[:, 0].tolist()
 
-        # Two-step URL cleanup: Second, remove special PROP from tokens, if present
-        try:
+        if 'THISWASAURL' in filtered_tokens:
             filtered_tokens.remove('THISWASAURL')
-        except ValueError as ex:
-            pass
+
+        for token in [t for t in filtered_tokens if re.match(r'[^a-zA-Z]+',t) is not None]:
+            filtered.tokens.remove(token)
 
         return filtered_tokens
 

@@ -23,13 +23,14 @@ RUN pip2 install supervisor && \
     pip2 install pandas
 
 # Download Observatory
-RUN curl -fSL "https://github.com/danielperezr88/TOM/archive/v2.0.tar.gz" -o TOM.tar.gz && \
+RUN curl -fSL "https://github.com/danielperezr88/TOM/archive/v2.0.1.tar.gz" -o TOM.tar.gz && \
 	tar -xf TOM.tar.gz -C . && \
 	mkdir /app && \
-	mv TOM-2.0/* /app/ && \
+	mv TOM-2.0.1/* /app/ && \
 	rm TOM.tar.gz && \
-	rm -rf TOM-2.0 && \
-	mv /app/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+	rm -rf TOM-2.0.1 && \
+	mv /app/supervisord.conf /etc/supervisor/conf.d/supervisord.conf && \
+	chmod 775 /app/pattern_pos.py
 	
 RUN curl -sSO https://dl.google.com/cloudagents/install-logging-agent.sh -o install-logging-agent.sh && \
 	echo "07ca6e522885b9696013aaddde48bf2675429e57081c70080a9a1364a411b395  install-logging-agent.sh" | sha256sum -c -

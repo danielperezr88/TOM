@@ -11,7 +11,9 @@ import argparse
 def df_pos(text, language='es'):
     parsers = dict(es=parse_es,en=parse_en)
     text = unicode(text, encoding='latin-1').encode('latin-1')
-    return pd.read_table(StringIO("\n".join(parsers[language](text).encode('latin-1').split()$
+    return pd.read_table(
+        StringIO("\n".join(parsers[language](text).encode('latin-1').split())),
+        sep='/', header=None, quoting=3, encoding='latin-1')
 
 def pattern_pos_filter_text(text, types, language):
     df = df_pos(text, language)
