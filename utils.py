@@ -124,6 +124,7 @@ def remove_old_files_from_bucket(basename='', client_obj=None, bucket_prefix=Non
     bucket = client_obj.get_bucket(bucket_name)
 
     blobs = bucket.list_blobs()
+    blobs = [b for b in blobs]
     filenames = [path.join(basename, b.name) for b in blobs]
     for filename, blob in zip(filenames, blobs):
         if not path.exists(filename):
@@ -169,6 +170,7 @@ def maybe_retrieve_entire_bucket(basename='', client_obj=None, bucket_prefix=Non
     bucket = client_obj.get_bucket(bucket_name)
 
     blobs = bucket.list_blobs()
+    blobs = [b for b in blobs]
     filenames = [path.join(basename, b.name) for b in blobs]
     for filename, blob in zip(filenames, blobs):
         if not path.exists(filename):

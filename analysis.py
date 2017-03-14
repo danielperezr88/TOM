@@ -30,6 +30,7 @@ from time import sleep
 
 import dateutil.parser as parser
 from requests import request as req
+from requests.exceptions import ConnectionError, Timeout
 
 from utils import BucketedFileRefresher, WEB_URL_REGEX, ANY_URL_REGEX, re_sub
 
@@ -41,6 +42,8 @@ BFR("config", filename, filepath)
 import syntaxnet_api_config as s_api
 
 emoji_pattern = re.compile(u"[\u0100-\uFFFF\U0001F000-\U0001F1FF\U0001F300-\U0001F64F\U0001F680-\U0001F6FF\U0001F700-\U0001FFFF\U000FE000-\U000FEFFF]+", flags=re.UNICODE)
+
+model_used = "syntaxnet"
 
 def save_pid():
     """Save pid into a file: filename.pid."""
@@ -142,6 +145,8 @@ class CustomTokenizerBuilder:
         #Language dependant NLTK's sentence-level tokenization
         sent_tok = load('tokenizers/punkt/%s.pickle' % (self.lang_name,)).tokenize
 
+        model_used = "syntaxnet"
+
         filtered_tokens = []
         for sent in sent_tok(text):
 
@@ -153,19 +158,22 @@ class CustomTokenizerBuilder:
             sent = re_sub(r'(?:(\.)(\S[^\.\,\:\;\!\?])|([\,\:\;\!\?])(\S))', r'\1\3 \2\4', sent)
 
             #Word-level tokenization and POS-based filtering. All non topic-central words filtered.
-            #tokens = syntaxnet_api_filter_text(
-            tokens = pattern_filter_text(
-                sent,
-                ['VERB', 'DET', 'PRON', 'ADV', 'AUX', 'SCONJ', 'ADP', 'NUM', 'SYM', 'X', 'PUNCT', 'VB', 'DT', 'CC',
-                 'CD', 'IN', 'LS', 'MD', 'PDT', 'POS', 'PRP', 'PRP$', 'RB', 'RBR', 'RBS', 'RP', 'TO', 'UH', 'VB',
-                 'VBZ', 'VBP', 'VBD', 'WDT', 'WP', 'WP$', 'WRB', '.', ',', ':', '(', ')'],
-                self.lang_code
-            )
+            types = ['VERB', 'DET', 'PRON', 'ADV', 'AUX', 'SCONJ', 'ADP', 'NUM', 'SYM', 'X', 'PUNCT', 'VB', 'DT', 'CC',
+                 'CD', 'IN', 'LS', 'MD', 'PDT', 'POS', 'PRP', 'PRP$', 'RB', 'RBR', 'RBS', 'RP', 'TO', 'UH', 'VB', 'VBZ',
+                 'VBP', 'VBD', 'WDT', 'WP', 'WP$', 'WRB', '.', ',', ':', '(', ')']
+            try:
+                tokens = syntaxnet_api_filter_text(sent, types, self.lang_code)
+            except (ConnectionError, Timeout) as ex:
+                model_used = "pattern"
+                tokens = pattern_filter_text(sent, types, self.lang_code)
+
             if tokens.size > 0:
                 filtered_tokens += tokens[:, 0].tolist()
 
         if 'THISWASAURL' in filtered_tokens:
             filtered_tokens.remove('THISWASAURL')
+
+        filtered_tokens = [t for t in filtered_tokens if isinstance(t,str)]
 
         for token in [t for t in filtered_tokens if re.match(r'[^a-zA-Z]+',t) is not None]:
             filtered_tokens.remove(token)
@@ -267,17 +275,22 @@ if __name__ == '__main__':
         today = dt.datetime.today().date()
 
         tokenizers = {}
-        inputs = set([path.splitext(path.basename(f))[0].split('_')[0] for f in glob(path.join(datadir, "*.csv"))])
-        for input_ in inputs:
 
-            idx = re.sub(r'input([0-9]+)', r'\1', input_)
-            input_conf = __import__('configinput%s' % (idx,))
-            language = input_conf.language
+        for timeframe in [31, 93, 365]:
 
-            if language not in tokenizers:
-                tokenizers.update({language: CustomTokenizerBuilder(language)})
+            model_used = "syntaxnet"
 
-            for timeframe in [31, 93, 365]:
+            inputs = set([path.splitext(path.basename(f))[0].split('_')[0] for f in glob(path.join(datadir, "*.csv"))])
+            for input_ in inputs:
+
+                idx = re.sub(r'input([0-9]+)', r'\1', input_)
+                input_conf = __import__('configinput%s' % (idx,))
+                language = input_conf.language
+
+                logging.info('Processing input %s, timeframe %dd' % (idx, timeframe))
+
+                if language not in tokenizers:
+                    tokenizers.update({language: CustomTokenizerBuilder(language)})
 
                 df = pd.DataFrame()
                 for filepath in glob(path.join(datadir, input_ + '_*.csv')):
@@ -321,6 +334,7 @@ if __name__ == '__main__':
                               r')\b',
                     tokenizer=tokenizers[language]
                 )
+                logging.info('Model Used: %s' % (model_used,))
                 print('corpus size:', corpus.size)
                 print('vocabulary size:', len(corpus.vocabulary))
 
@@ -406,4 +420,4 @@ if __name__ == '__main__':
                 with open(path.join(pickledir, input_ + '_' + str(timeframe) + 'd_topic_model.pkl'), 'wb') as fp:
                     pickle.dump(topic_model, fp)
 
-        sleep(300)
+        sleep(60)
