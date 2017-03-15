@@ -161,9 +161,14 @@ class CustomTokenizerBuilder:
             types = ['VERB', 'DET', 'PRON', 'ADV', 'AUX', 'SCONJ', 'ADP', 'NUM', 'SYM', 'X', 'PUNCT', 'VB', 'DT', 'CC',
                  'CD', 'IN', 'LS', 'MD', 'PDT', 'POS', 'PRP', 'PRP$', 'RB', 'RBR', 'RBS', 'RP', 'TO', 'UH', 'VB', 'VBZ',
                  'VBP', 'VBD', 'WDT', 'WP', 'WP$', 'WRB', '.', ',', ':', '(', ')']
-            try:
-                tokens = syntaxnet_api_filter_text(sent, types, self.lang_code)
-            except (ConnectionError, Timeout) as ex:
+
+            if s_api.api_ip is not None:
+                try:
+                    tokens = syntaxnet_api_filter_text(sent, types, self.lang_code)
+                except (ConnectionError, Timeout) as ex:
+                    model_used = "pattern"
+                    tokens = pattern_filter_text(sent, types, self.lang_code)
+            else:
                 model_used = "pattern"
                 tokens = pattern_filter_text(sent, types, self.lang_code)
 

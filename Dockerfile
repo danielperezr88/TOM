@@ -23,12 +23,12 @@ RUN pip2 install supervisor && \
     pip2 install pandas
 
 # Download Observatory
-RUN curl -fSL "https://github.com/danielperezr88/TOM/archive/v2.1.0.tar.gz" -o TOM.tar.gz && \
+RUN curl -fSL "https://github.com/danielperezr88/TOM/archive/v2.2.0.tar.gz" -o TOM.tar.gz && \
 	tar -xf TOM.tar.gz -C . && \
 	mkdir /app && \
-	mv TOM-2.1.0/* /app/ && \
+	mv TOM-2.2.0/* /app/ && \
 	rm TOM.tar.gz && \
-	rm -rf TOM-2.1.0 && \
+	rm -rf TOM-2.2.0 && \
 	mv /app/supervisord.conf /etc/supervisor/conf.d/supervisord.conf && \
 	chmod 775 /app/pattern_pos.py
 	
