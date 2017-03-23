@@ -1,18 +1,57 @@
 # -*- coding: UTF-8 -*-
 from sys import modules
 from glob import glob
-from os import path, remove, close
+from os import path, remove, close, getpid
 import logging
 import shutil
+import json
 import re
 
 from tempfile import mkstemp
+from importlib import reload
 
 try:
     from google.protobuf import timestamp_pb2
     from gcloud import storage
 except BaseException as e:
     pass
+
+
+def save_pid(pname, redis=None, pid=None):
+
+    pid = getpid() if pid is None else pid
+
+    """Prioritarily, save pid on redis db."""
+    if redis is not None:
+        return redis.set('%s_pid' % (pname,), pid)
+
+    """If none given, save pid into a file: filename.pid."""
+    with open("%s.pid" % (pname,), 'w') as fp:
+        fp.write(str(pid))
+
+
+def get_pname(config_key, redis=None, pid=None, pid_as_second_key=False, switch_key_value=False):
+
+    """Prioritarily, get pname from redis db."""
+    if redis is not None:
+        data = json.loads(redis.get(config_key).decode('latin-1'))
+
+    else:
+        with open(config_key, 'r') as fp:
+            data = json.loads(fp.read())
+
+    if isinstance(data, dict) and switch_key_value:
+        data = {v: k for k, v in data.items()}
+
+    if pid_as_second_key:
+
+        if not isinstance(data, dict):
+            return None
+
+        pid = getpid() if pid is None else pid
+        return data[pid] if pid in data else None
+
+    return data
 
 
 def re_sub(pattern, replacement, string):
@@ -203,6 +242,36 @@ def create_configfile_or_replace_existing_keys(file_path, patterns):
             remove(file_path)
     close(fh)
     shutil.move(abs_path, file_path)
+
+
+def refresh_and_retrieve_module(filename, bucketed_file_refresher=None, bucket=None, default=None):
+
+    BFR = BucketedFileRefresher() if bucketed_file_refresher is None else bucketed_file_refresher
+
+    while True:
+
+        try:
+
+            filepath = path.join(path.dirname(path.realpath(__file__)), filename)
+            if bucket is not None:
+                BFR(bucket, filename, filepath)
+
+            module = __import__(path.splitext(filename)[0])
+            return reload(module)
+
+        except BaseException as ex:
+
+            if path.exists(filepath):
+                module = __import__(path.splitext(filename)[0])
+                return reload(module)
+
+            if default is not None:
+                create_configfile_or_replace_existing_keys(filepath, default)
+                continue
+
+            msg = "Unable to access file \"%s\": Unreachable or unexistent bucket, file and default." % (filename,)
+            logging.error(msg)
+            raise ImportError(msg)
 
 
 """

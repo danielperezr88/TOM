@@ -47,4 +47,4 @@ if __name__ == '__main__':
 
     for row in res:
         print_row = '\t'.join(row)
-        print print_row.encode('latin-1')
+        print(print_row.encode('latin-1'))

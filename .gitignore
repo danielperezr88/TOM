@@ -18,13 +18,8 @@ stress_tests/*
 
 browser/static/data/
 
-input/configinput*
-
-input/input*
-!input/input.py
-
-input/data
-input/topic_model_browser_cse_api_keys.py
+input_data
+topic_model_browser_cse_api_keys.py
 topic_model_browser_active_inputs.py
 topic_model_browser_config.py
 syntaxnet_api_config.py

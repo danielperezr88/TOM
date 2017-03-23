@@ -1,6 +1,6 @@
-FROM danielperezr88/python3
+FROM humanforecast/python3-redis
 
-MAINTAINER danielperezr88 <danielperezr88@gmail.com>
+MAINTAINER dperez <dperez@human-forecast.com>
 
 # This installs python2 too
 RUN apt-get update && apt-get install -y \
@@ -23,12 +23,12 @@ RUN pip2 install supervisor && \
     pip2 install pandas
 
 # Download Observatory
-RUN curl -fSL "https://github.com/danielperezr88/TOM/archive/v2.2.0.tar.gz" -o TOM.tar.gz && \
+RUN curl -fSL "https://github.com/danielperezr88/TOM/archive/v3.0.0rc1.tar.gz" -o TOM.tar.gz && \
 	tar -xf TOM.tar.gz -C . && \
 	mkdir /app && \
-	mv TOM-2.2.0/* /app/ && \
+	mv TOM-3.0.0rc1/* /app/ && \
 	rm TOM.tar.gz && \
-	rm -rf TOM-2.2.0 && \
+	rm -rf TOM-3.0.0rc1 && \
 	mv /app/supervisord.conf /etc/supervisor/conf.d/supervisord.conf && \
 	chmod 775 /app/pattern_pos.py
 	
@@ -39,7 +39,8 @@ RUN pip install --upgrade pip && \
 	pip install Flask-QRcode && \
 	pip install tom_lib && \
 	pip install beautifulsoup4 && \
-	pip install nltk
+	pip install nltk && \
+	pip install psutil
 
 RUN python -m nltk.downloader -d /usr/share/nltk_data brown
 RUN python -m nltk.downloader -d /usr/share/nltk_data punkt

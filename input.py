@@ -1,9 +1,8 @@
 # coding: utf-8
-from os import path, makedirs, getpid, remove
+from os import path, makedirs, remove
 from sys import modules
 from glob import glob
 import logging
-import inspect
 import re
 
 import requests
@@ -19,19 +18,20 @@ from bs4 import BeautifulSoup
 
 import pandas as pd
 
+from redis import Redis
+
+from utils import get_pname, refresh_and_retrieve_module, BucketedFileRefresher
+
 try:
     from google.protobuf import timestamp_pb2
     from gcloud import storage
 except BaseException as e:
     pass
 
-
-def save_pid():
-    """Save pid into a file: filename.pid."""
-    pidfilename = inspect.getfile(inspect.currentframe()) + ".pid"
-    f = open(pidfilename, 'w')
-    f.write(str(getpid()))
-    f.close()
+try:
+    redis = Redis(host='127.0.0.1', port=6379)
+except Exception as e:
+    raise Exception('Unable to establish connection with Redis server')
 
 
 def request(url, method="GET", params={}, default=None):
@@ -148,8 +148,20 @@ class NewsArticleScraper:
         return result
 
 
+def retrieve_input_config(iid):
+
+    configs = refresh_and_retrieve_module("topic_model_browser_config.py", BFR, CONFIG_BUCKET)
+
+    for cfg in configs:
+        if iid == cfg['id']:
+            return cfg
+
+    return None
+
+
 CONFIG_BUCKET = 'config'
 INPUT_BUCKET = 'inputs'
+BFR = BucketedFileRefresher()
 
 gstorage_client = None
 if "google" in modules:
@@ -160,14 +172,12 @@ CSE_API_URL = "https://www.googleapis.com/customsearch/v1"
 
 if __name__ == '__main__':
 
-    """PID file."""
-    save_pid()
+    pname = get_pname("input_pids", redis, pid_as_second_key=True)
+    iid = int(re.sub(r'input([0-9]+)', r'\1', pname))
 
     """Directory handling."""
     dirname = path.dirname(path.realpath(__file__))
-    datadir = path.join(dirname, "data")
-    basename = path.basename(path.realpath(__file__))
-    name_noextension = path.splitext(basename)[0]
+    datadir = path.join(dirname, "input_data")
 
     if not path.exists(datadir):
         makedirs(datadir)
@@ -176,12 +186,12 @@ if __name__ == '__main__':
     logDir = path.join(dirname, "input_logs")
     if not path.exists(logDir):
         makedirs(logDir)
-    logfilename = path.join(logDir, basename) + ".log"
+    logfilename = path.join(logDir, pname) + ".log"
     logging.basicConfig(filename=logfilename, level=logging.ERROR, format='%(asctime)s %(message)s')
     logging.info('Started')
 
-    """Import config file."""
-    configinput = __import__("config" + name_noextension)
+    """Import config"""
+    configinput = retrieve_input_config(iid)
 
     """Import CSE API key file"""
     if "google" in modules:
@@ -203,10 +213,10 @@ if __name__ == '__main__':
 
     """Setup Query Parameters"""
     parameters = {
-        "q": configinput.query,
+        "q": configinput['query'],
         "cx": cx,
         "key": key,
-        "lr": configinput.language
+        "lr": configinput['language']
     }
 
     """Instantiate scraper"""
@@ -239,7 +249,7 @@ if __name__ == '__main__':
             now = pd.DataFrame(scraped_now)
             if now.size > 0:
                 today_results = today_results.append(now, ignore_index=True).drop_duplicates()
-                filepath = path.join(datadir, name_noextension + '_' + today.strftime("%Y%m%d") + '.csv')
+                filepath = path.join(datadir, pname + '_' + today.strftime("%Y%m%d") + '.csv')
                 today_results.to_csv(filepath, sep='\t', encoding='utf-8')
 
             del now
@@ -248,7 +258,7 @@ if __name__ == '__main__':
 
         """Remove files older than 1 year"""
         dates = []
-        for each in [f for f in glob(path.join(datadir, name_noextension + "_*.csv"))]:
+        for each in [f for f in glob(path.join(datadir, pname + "_*.csv"))]:
 
             date = dt.datetime.strptime(path.splitext(each)[0].split('_')[-1], '%Y%m%d').date()
             if date < today - dt.timedelta(days=365):
@@ -267,7 +277,7 @@ if __name__ == '__main__':
                     sleep((dt.timedelta(minutes=5)-(toc-five_min_tic)).seconds)
                 five_min_tic = dt.datetime.now()
 
-                filepath = path.join(datadir, name_noextension + '_' + day.strftime("%Y%m%d") + '.csv')
+                filepath = path.join(datadir, pname + '_' + day.strftime("%Y%m%d") + '.csv')
 
                 scraped = scraper(day)
                 api_error = scraped is None

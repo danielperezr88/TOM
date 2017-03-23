@@ -1,18 +1,22 @@
 # coding: utf-8
-from os import path, getpid, remove, popen, makedirs
+from os import path, remove, makedirs
 from sys import executable as pythonPath
+
+from redis import Redis
 
 from time import sleep
 from glob import glob
 
-import shutil
 import inspect
 
 import logging
 
 import subprocess
+import psutil
 
-from importlib import reload
+from math import ceil
+
+import json
 
 try:
     from google.protobuf import timestamp_pb2
@@ -25,38 +29,26 @@ from utils import \
     maybe_retrieve_entire_bucket, \
     upload_new_files_to_bucket, \
     remove_old_files_from_bucket, \
-    create_configfile_or_replace_existing_keys
+    refresh_and_retrieve_module, \
+    save_pid
+
+try:
+    redis = Redis(host='127.0.0.1', port=6379)
+except Exception as e:
+    raise Exception('Unable to establish connection with Redis server')
 
 CONFIG_BUCKET = 'config'
 INPUT_BUCKET = 'inputs'
 
 BFR = BucketedFileRefresher()
 
-def save_pid():
-    """Save pid into a file: filename.pid."""
-    pidfilename = inspect.getfile(inspect.currentframe()) + ".pid"
-    f = open(pidfilename, 'w')
-    f.write(str(getpid()))
-    f.close()
-
 
 def check_pid(pid):
-    return int(popen("ps -p %d --no-headers | wc -l" % (int(pid) if len(pid) > 0 else 0,)).read().strip()) == 1
-
-
-def create_py_files(searchId, patterns):
-
-    destpyfile = path.join("input", "input%d.py" % (searchId,))
-    if not path.exists(destpyfile):
-        shutil.copy(path.join("input", "input.py"), destpyfile)
-
-    configpyfile = path.join("input", "configinput%d.py" % (searchId,))
-    if not path.exists(configpyfile):
-        create_configfile_or_replace_existing_keys(configpyfile, patterns)
+    return pid in psutil.pids() if pid is not None else False
 
 
 def stop_py(pid):
-    popen("kill %s"%(pid,))
+    psutil.Process(pid).terminate()
     return True
 
 
@@ -65,92 +57,90 @@ def launch_py(filepath):
     return str(subprocess.Popen([pythonPath, filepath]).pid)
 
 
-def maybe_stop_py(filepath):
-    pidfile = filepath + ".pid"
-    if path.exists(pidfile):
-        pid_data = ''
-        # check if pid is running
-        with open(pidfile, 'r') as f:
-            pid_data = f.read()
-        if check_pid(pid_data):
-            stop_py(pid_data)
-        remove(pidfile)
+def maybe_stop_py(pid):
+    if check_pid(pid):
+        return stop_py(pid)
+
+    return False
 
 
-def maybe_launch_py(filepath, hatch_rate=2):
-    pidfile = filepath + ".pid"
-    if path.exists(pidfile):
-        pid_data = ''
-        # check if pid is running
-        with open(pidfile, 'r') as f:
-            pid_data = f.read()
-        if not check_pid(pid_data):
-            pid = launch_py(filepath)
-            remove(pidfile)
-            with open(pidfile, 'w') as f:
-                f.write(pid)
-            sleep(1./hatch_rate)
-    else:
+def maybe_launch_py(filepath, hatch_rate=None, pid=None):
+    if not check_pid(pid):
         pid = launch_py(filepath)
-        with open(pidfile, 'w') as f:
-            f.write(pid)
-        sleep(1./hatch_rate)
+        if hatch_rate is not None:
+            sleep(1. / hatch_rate)
+        return pid
+    return pid
 
 
-def refresh_and_retrieve_module(filename, bucket=None, default=None):
+def maybe_keep_inputs_alive(active_inputs, hatch_rate):
 
-    while True:
+    pids = {pid: iid for pid, iid in json.loads(redis.get('input_pids').decode('latin-1')).items() if check_pid(pid)}
+    i_pids = {iid: pid for pid, iid in pids.items()}
 
-        try:
+    for iid, active in [("input%d" % (idx,), active) for idx, active in enumerate(active_inputs)]:
 
-            filepath = path.join(path.dirname(path.realpath(__file__)), filename)
-            if bucket is not None:
-                BFR(bucket, filename, filepath)
+        pid = i_pids[iid] if iid in i_pids else None
 
-            module = __import__(path.splitext(filename)[0])
-            return reload(module)
-
-        except BaseException as ex:
-
-            if path.exists(filepath):
-                module = __import__(path.splitext(filename)[0])
-                return reload(module)
-
-            if default is not None:
-                create_configfile_or_replace_existing_keys(filepath, default)
-                continue
-
-            msg = "Unable to access file \"%s\": Unreachable or unexistent bucket, file and default." % (filename,)
-            logging.error(msg)
-            raise ImportError(msg)
-
-
-# def keep_processes_alive(pyfiles):
-def maybe_keep_inputs_alive(pyfiles, hatch_rate):
-
-    active = refresh_and_retrieve_module("topic_model_browser_active_inputs.py", CONFIG_BUCKET,
-                                         dict(active=[1]*len(pyfiles))).active
-
-    for idx, filepath in enumerate(pyfiles):
-        if active[idx] != 0:
-            maybe_launch_py(filepath, hatch_rate)
+        if active:
+            pids.update({maybe_launch_py(path.join(dirname, "input.py"), hatch_rate, pid): iid})
         else:
-            maybe_stop_py(filepath)
+            maybe_stop_py(pid)
+            pids.pop(pid, None)
+
+    redis.set('input_pids', json.dumps(pids))
 
 
-def get_files_to_watch():
+def get_files_to_analyse():
 
-    inputs = refresh_and_retrieve_module('topic_model_browser_config.py', CONFIG_BUCKET)
+    return set([path.splitext(path.basename(f))[0].split('_')[0] for f in glob(path.join(datadir, "*.csv"))])
 
-    for idx, patterns in [(i['id'], i) for i in inputs.inputs]:
-        create_py_files(idx, patterns)
 
-    return glob(path.join(path.dirname(path.realpath(__file__)), "input", "input[0-9]*.py"))
+def maybe_keep_analysis_alive(configs):
+
+    pids = [pid for pid in json.loads(redis.get('analysis_pids').decode('latin-1')) if check_pid(pid)]
+
+    qty = len(configs)
+    prev_qty = len(pids)
+
+    if prev_qty < qty:
+        [pids.append(maybe_launch_py(path.join(dirname, 'analysis.py'))) for i in range(prev_qty, qty)]
+    elif prev_qty > qty:
+        [maybe_stop_py(pids[-i+(qty-1)]) for i in range(qty, prev_qty)]
+        pids = pids[:-(prev_qty-qty)]
+
+    redis.set('analysis_config', json.dumps(dict(zip(pids, configs))))
+    redis.set('analysis_pids', json.dumps(pids))
+
+
+def update_analysis_configs(files, qty):
+
+    # Avoid float code related errors
+    epsilon = (1. / qty) * 0.9
+
+    qty_files = len(files)
+    file_share = float(qty_files) / qty
+
+    configs = []
+    residual = 0.
+    next = 0
+    for i in range(1, qty+1):
+
+        share = int(file_share + residual + epsilon)
+        residual = file_share + residual - share
+
+        file_idxs = [next + r for r in range(share)]
+        configs.append([files[idx] for idx in file_idxs])
+
+        next = file_idxs[-1] + 1
+
+    return configs
+
 
 if __name__ == "__main__":
 
-    # First of all, create pid file
-    save_pid()
+    # First of all, register pid
+    save_pid("watcher", redis)
 
     # Handle loggin configuration
     logfilename = inspect.getfile(inspect.currentframe()) + ".log"
@@ -159,19 +149,31 @@ if __name__ == "__main__":
 
     # Take all possible scraped data from inputs bucket
     dirname = path.dirname(path.realpath(__file__))
-    datadir = path.join(dirname, "input", "data")
+    datadir = path.join(dirname, "input_data")
     if not path.exists(datadir):
         makedirs(datadir)
     maybe_retrieve_entire_bucket(basename=datadir, bucket_prefix=INPUT_BUCKET)
 
-    # Maybe create input activation control file
-    refresh_and_retrieve_module("topic_model_browser_active_inputs.py", CONFIG_BUCKET,
-                                dict(active=[1]*len(get_files_to_watch())))
+    for pid_blob in [{'name': 'input_pids', 'default': dict()},
+                     {'name': 'analysis_pids', 'default': []}]:
+        if pid_blob['name'] not in redis.keys():
+            redis.set(pid_blob, pid_blob['default'])
+
+    input_analysis_ratio = 5
 
     # Main loop
     while True:
-        inputs = get_files_to_watch()
-        maybe_keep_inputs_alive(inputs, hatch_rate=2)
+
+        inputs = refresh_and_retrieve_module("topic_model_browser_config.py", BFR, CONFIG_BUCKET)
+        active_inputs = refresh_and_retrieve_module("topic_model_browser_active_inputs.py", BFR, CONFIG_BUCKET,
+                                                    dict(active=[1] * len(inputs)))
+
+        maybe_keep_inputs_alive(active_inputs, hatch_rate=2)
         upload_new_files_to_bucket(glob_filename='input*.csv', basename=datadir, bucket_prefix=INPUT_BUCKET)
         remove_old_files_from_bucket(basename=datadir, bucket_prefix=INPUT_BUCKET)
+
+        analysis = get_files_to_analyse()
+        configs = update_analysis_configs(analysis, ceil(float(len(analysis)) / input_analysis_ratio))
+        maybe_keep_analysis_alive(configs)
+
         sleep(300)

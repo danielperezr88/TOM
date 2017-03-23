@@ -1,5 +1,5 @@
 # coding: utf-8
-from os import path, getpid, makedirs
+from os import path, getpid, makedirs, environ
 from io import StringIO
 from glob import glob
 import itertools
@@ -18,6 +18,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 
 import subprocess
 import shlex
+from redis import Redis
 
 import pickle
 import codecs
@@ -32,7 +33,12 @@ import dateutil.parser as parser
 from requests import request as req
 from requests.exceptions import ConnectionError, Timeout
 
-from utils import BucketedFileRefresher, WEB_URL_REGEX, ANY_URL_REGEX, re_sub
+from utils import \
+    refresh_and_retrieve_module, \
+    BucketedFileRefresher, \
+    WEB_URL_REGEX, \
+    ANY_URL_REGEX, \
+    re_sub
 
 BFR = BucketedFileRefresher()
 filename = "syntaxnet_api_config.py"
@@ -41,16 +47,27 @@ BFR("config", filename, filepath)
 
 import syntaxnet_api_config as s_api
 
+try:
+    redis = Redis(host='127.0.0.1', port=6379)
+except Exception as e:
+    raise Exception('Unable to establish connection with Redis server')
+
 emoji_pattern = re.compile(u"[\u0100-\uFFFF\U0001F000-\U0001F1FF\U0001F300-\U0001F64F\U0001F680-\U0001F6FF\U0001F700-\U0001FFFF\U000FE000-\U000FEFFF]+", flags=re.UNICODE)
+
+CONFIG_BUCKET = "config"
 
 model_used = "syntaxnet"
 
-def save_pid():
-    """Save pid into a file: filename.pid."""
-    pidfilename = inspect.getfile(inspect.currentframe()) + ".pid"
-    f = open(pidfilename, 'w')
-    f.write(str(getpid()))
-    f.close()
+
+def retrieve_input_config(iid):
+
+    configs = refresh_and_retrieve_module("topic_model_browser_config.py", BFR, CONFIG_BUCKET)
+
+    for cfg in configs:
+        if iid == cfg['id']:
+            return cfg
+
+    return None
 
 
 def generateDateColumn(row):
@@ -120,13 +137,16 @@ def syntaxnet_api_filter_text(text, types, language):
 def pattern_filter_text(text, types, language):
 
     text = emoji_pattern.sub(r'', text)
-    text = re.sub(r'\"',r'',text)
+    text = re.sub(r'\"', r'', text)
 
-    command = shlex.split('%s "%s" --language %s --types %s' %
-                          (path.join(dirname, 'pattern_pos.py'), text, language, ' '.join(types)))
-    command = [c.encode('latin-1') for c in command]
-    process = subprocess.Popen(command, stdout=subprocess.PIPE)
-    result = process.communicate()[0].decode('latin-1')
+    command = shlex.split('"%s" --language %s --types %s' %
+                          (text, language, ' '.join(types)))
+    command = ['python', path.join(dirname, 'pattern_pos.py')] + command
+    #command = [c.encode('latin-1') for c in command]
+    environ['PATH'] = ';'.join(environ['PATH'].split(';')[2:-6]+[environ['PYTHON27-SPYDER']])
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, universal_newlines=True,
+                               env=environ, shell=True)
+    result = process.communicate()[0]#.decode('latin-1')
     if result:
         return pd.read_table(StringIO(result), sep='\t', header=None, quoting=3).values
     else:
@@ -253,29 +273,23 @@ dt = parser.datetime
 
 if __name__ == '__main__':
 
-    save_pid()
-
     logfilename = inspect.getfile(inspect.currentframe()) + ".log"
     logging.basicConfig(filename=logfilename, level=logging.INFO, format='%(asctime)s %(message)s')
     logging.info("Started")
 
     dirname = path.dirname(path.realpath(__file__))
-    inputdir = path.join(dirname, "input")
-    datadir = path.join(inputdir, "data")
+    datadir = path.join(dirname, "input_data")
     pickledir = path.join(dirname, "pickled_models")
 
     if not path.exists(pickledir):
         makedirs(pickledir)
 
-    sys.path.append(inputdir)
-
     while True:
 
-        # Clean the data directory
+        # Maybe create data directory
         browser_data = path.join('browser', 'static', 'data')
-        if path.exists(browser_data):
-            shutil.rmtree(browser_data)
-        makedirs(browser_data)
+        if not path.exists(browser_data):
+            makedirs(browser_data)
 
         today = dt.datetime.today().date()
 
@@ -285,14 +299,14 @@ if __name__ == '__main__':
 
             model_used = "syntaxnet"
 
-            inputs = set([path.splitext(path.basename(f))[0].split('_')[0] for f in glob(path.join(datadir, "*.csv"))])
+            inputs = json.loads(redis.get("analysis_config").decode('latin-1'))[getpid()]
             for input_ in inputs:
 
                 idx = re.sub(r'input([0-9]+)', r'\1', input_)
-                input_conf = __import__('configinput%s' % (idx,))
-                language = input_conf.language
+                language = retrieve_input_config(idx)['language']
 
                 logging.info('Processing input %s, timeframe %dd' % (idx, timeframe))
+                print('Processing input %s, timeframe %dd' % (idx, timeframe))
 
                 if language not in tokenizers:
                     tokenizers.update({language: CustomTokenizerBuilder(language)})
@@ -321,7 +335,7 @@ if __name__ == '__main__':
                 if df.count(0)[0] <= 1:
                     continue
 
-                finalpath = path.join(inputdir, input_ + '_' + str(timeframe) + 'd_final.csv')
+                finalpath = path.join(datadir, input_ + '_' + str(timeframe) + 'd_final.csv')
                 df.to_csv(finalpath, sep='\t', encoding='utf-8')
 
                 # Load corpus
@@ -339,7 +353,6 @@ if __name__ == '__main__':
                               r')\b',
                     tokenizer=tokenizers[language]
                 )
-                logging.info('Model Used: %s' % (model_used,))
                 print('corpus size:', corpus.size)
                 print('vocabulary size:', len(corpus.vocabulary))
 
