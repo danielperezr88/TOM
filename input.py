@@ -150,7 +150,7 @@ class NewsArticleScraper:
 
 def retrieve_input_config(iid):
 
-    configs = refresh_and_retrieve_module("topic_model_browser_config.py", BFR, CONFIG_BUCKET)
+    configs = refresh_and_retrieve_module("topic_model_browser_config.py", BFR, CONFIG_BUCKET).inputs
 
     for cfg in configs:
         if iid == cfg['id']:
@@ -172,7 +172,15 @@ CSE_API_URL = "https://www.googleapis.com/customsearch/v1"
 
 if __name__ == '__main__':
 
-    pname = get_pname("input_pids", redis, pid_as_second_key=True)
+    while True:
+
+        pname = get_pname("input_pids", redis, pid_as_second_key=True)
+
+        if pname is not None:
+            break
+
+        sleep(1)
+
     iid = int(re.sub(r'input([0-9]+)', r'\1', pname))
 
     """Directory handling."""

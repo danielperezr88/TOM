@@ -44,7 +44,7 @@ BFR = BucketedFileRefresher()
 
 
 def check_pid(pid):
-    return pid in psutil.pids() if pid is not None else False
+    return int(pid) in psutil.pids() if pid is not None else False
 
 
 def stop_py(pid):
@@ -84,16 +84,16 @@ def maybe_keep_inputs_alive(active_inputs, hatch_rate):
 
         if active:
             pids.update({maybe_launch_py(path.join(dirname, "input.py"), hatch_rate, pid): iid})
+            redis.set('input_pids', json.dumps(pids))
         else:
             maybe_stop_py(pid)
             pids.pop(pid, None)
-
-    redis.set('input_pids', json.dumps(pids))
+            redis.set('input_pids', json.dumps(pids))
 
 
 def get_files_to_analyse():
 
-    return set([path.splitext(path.basename(f))[0].split('_')[0] for f in glob(path.join(datadir, "*.csv"))])
+    return list(set([path.splitext(path.basename(f))[0].split('_')[0] for f in glob(path.join(datadir, "*.csv"))]))
 
 
 def maybe_keep_analysis_alive(configs):
@@ -156,19 +156,19 @@ if __name__ == "__main__":
 
     for pid_blob in [{'name': 'input_pids', 'default': dict()},
                      {'name': 'analysis_pids', 'default': []}]:
-        if pid_blob['name'] not in redis.keys():
-            redis.set(pid_blob, pid_blob['default'])
+        if pid_blob['name'].encode('latin-1') not in redis.keys():
+            redis.set(pid_blob['name'], pid_blob['default'])
 
-    input_analysis_ratio = 5
+    input_analysis_ratio = 22
 
     # Main loop
     while True:
 
         inputs = refresh_and_retrieve_module("topic_model_browser_config.py", BFR, CONFIG_BUCKET)
         active_inputs = refresh_and_retrieve_module("topic_model_browser_active_inputs.py", BFR, CONFIG_BUCKET,
-                                                    dict(active=[1] * len(inputs)))
+                                                    dict(active=[1] * len(inputs.inputs)))
 
-        maybe_keep_inputs_alive(active_inputs, hatch_rate=2)
+        maybe_keep_inputs_alive(active_inputs.active, hatch_rate=2)
         upload_new_files_to_bucket(glob_filename='input*.csv', basename=datadir, bucket_prefix=INPUT_BUCKET)
         remove_old_files_from_bucket(basename=datadir, bucket_prefix=INPUT_BUCKET)
 

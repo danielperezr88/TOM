@@ -1,5 +1,5 @@
 # coding: utf-8
-from os import path, getpid, makedirs, environ
+from os import path, getpid, makedirs
 from io import StringIO
 from glob import glob
 import itertools
@@ -19,6 +19,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 import subprocess
 import shlex
 from redis import Redis
+import json
 
 import pickle
 import codecs
@@ -61,10 +62,10 @@ model_used = "syntaxnet"
 
 def retrieve_input_config(iid):
 
-    configs = refresh_and_retrieve_module("topic_model_browser_config.py", BFR, CONFIG_BUCKET)
+    configs = refresh_and_retrieve_module("topic_model_browser_config.py", BFR, CONFIG_BUCKET).inputs
 
     for cfg in configs:
-        if iid == cfg['id']:
+        if iid == str(cfg['id']):
             return cfg
 
     return None
@@ -139,14 +140,11 @@ def pattern_filter_text(text, types, language):
     text = emoji_pattern.sub(r'', text)
     text = re.sub(r'\"', r'', text)
 
-    command = shlex.split('"%s" --language %s --types %s' %
-                          (text, language, ' '.join(types)))
-    command = ['python', path.join(dirname, 'pattern_pos.py')] + command
-    #command = [c.encode('latin-1') for c in command]
-    environ['PATH'] = ';'.join(environ['PATH'].split(';')[2:-6]+[environ['PYTHON27-SPYDER']])
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, universal_newlines=True,
-                               env=environ, shell=True)
-    result = process.communicate()[0]#.decode('latin-1')
+    command = shlex.split('%s "%s" --language %s --types %s' %
+                          (path.join(dirname, 'pattern_pos.py'), text, language, ' '.join(types)))
+    command = [c.encode('latin-1') for c in command]
+    process = subprocess.Popen(command, stdout=subprocess.PIPE)
+    result = process.communicate()[0].decode('latin-1')
     if result:
         return pd.read_table(StringIO(result), sep='\t', header=None, quoting=3).values
     else:
@@ -299,7 +297,7 @@ if __name__ == '__main__':
 
             model_used = "syntaxnet"
 
-            inputs = json.loads(redis.get("analysis_config").decode('latin-1'))[getpid()]
+            inputs = json.loads(redis.get("analysis_config").decode('latin-1'))[str(getpid())]
             for input_ in inputs:
 
                 idx = re.sub(r'input([0-9]+)', r'\1', input_)

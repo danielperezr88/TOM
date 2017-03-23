@@ -48,7 +48,7 @@ def get_pname(config_key, redis=None, pid=None, pid_as_second_key=False, switch_
         if not isinstance(data, dict):
             return None
 
-        pid = getpid() if pid is None else pid
+        pid = str(getpid() if pid is None else pid)
         return data[pid] if pid in data else None
 
     return data
