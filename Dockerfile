@@ -23,12 +23,12 @@ RUN pip2 install supervisor && \
     pip2 install pandas
 
 # Download Observatory
-RUN curl -fSL "https://github.com/danielperezr88/TOM/archive/v3.1.0.tar.gz" -o TOM.tar.gz && \
+RUN curl -fSL "https://github.com/danielperezr88/TOM/archive/v3.1.1.tar.gz" -o TOM.tar.gz && \
 	tar -xf TOM.tar.gz -C . && \
 	mkdir /app && \
-	mv TOM-3.1.0/* /app/ && \
+	mv TOM-3.1.1/* /app/ && \
 	rm TOM.tar.gz && \
-	rm -rf TOM-3.1.0 && \
+	rm -rf TOM-3.1.1 && \
 	mv /app/supervisord.conf /etc/supervisor/conf.d/supervisord.conf && \
 	chmod 775 /app/pattern_pos.py
 
@@ -45,7 +45,7 @@ RUN pip install --upgrade pip && \
 	pip install psutil && \
 	pip install redis
 
-RUN pip uninstall Werkzeug && \
+RUN pip uninstall -y Werkzeug && \
     pip install Werkzeug==0.11.15
 
 RUN python -m nltk.downloader -d /usr/share/nltk_data brown
