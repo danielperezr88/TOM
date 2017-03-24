@@ -19,6 +19,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 import subprocess
 import shlex
 from redis import Redis
+from redis import WatchError
 import json
 
 import pickle
@@ -311,11 +312,13 @@ if __name__ == '__main__':
 
                 df = pd.DataFrame()
                 for filepath in glob(path.join(datadir, input_ + '_*.csv')):
-                    if dt.datetime.strptime(path.splitext(filepath)[0].split('_')[-1], '%Y%m%d').date() > \
-                                    today - dt.timedelta(days=timeframe):
-                        aux_df = pd.read_csv(filepath, sep='\t', encoding='utf-8')
-                        if not aux_df.empty:
-                            df = df.append(aux_df, ignore_index=True).drop_duplicates()
+                    date_string = path.splitext(filepath)[0].split('_')[-1]
+                    if re.match(r'^[0-9]{8}$', date_string) is not None:
+                        if dt.datetime.strptime(date_string, '%Y%m%d').date() > \
+                                        today - dt.timedelta(days=timeframe):
+                            aux_df = pd.read_csv(filepath, sep='\t', encoding='utf-8')
+                            if not aux_df.empty:
+                                df = df.append(aux_df, ignore_index=True).drop_duplicates()
 
                 if df.count(0).empty:
                     continue
@@ -332,6 +335,8 @@ if __name__ == '__main__':
 
                 if df.count(0)[0] <= 1:
                     continue
+
+                timestamp = dt.datetime.now()
 
                 finalpath = path.join(datadir, input_ + '_' + str(timeframe) + 'd_final.csv')
                 df.to_csv(finalpath, sep='\t', encoding='utf-8')
@@ -435,5 +440,21 @@ if __name__ == '__main__':
 
                 with open(path.join(pickledir, input_ + '_' + str(timeframe) + 'd_topic_model.pkl'), 'wb') as fp:
                     pickle.dump(topic_model, fp)
+
+                # Update timestamp for the given input
+                with redis.pipeline() as pipe:
+                    while True:
+                        try:
+                            pipe.watch('analysis_timestamps')
+                            timestamps = json.loads(pipe.get('analysis_timestamps').decode('latin-1'))
+                            timestamps["%s_%dd_" % (input_, timeframe)] = timestamp
+                            pipe.multi()
+                            pipe.set('analysis_timestamps', json.dumps(timestamps))
+                            pipe.execute()
+                            break
+
+                        except WatchError as e:
+                            sleep(0.5)
+                            continue
 
         sleep(60)

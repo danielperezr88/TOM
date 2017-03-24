@@ -6,6 +6,7 @@ from redis import Redis
 
 from time import sleep
 from glob import glob
+import datetime as dt
 
 import inspect
 
@@ -27,7 +28,7 @@ except BaseException as e:
 from utils import \
     BucketedFileRefresher, \
     maybe_retrieve_entire_bucket, \
-    upload_new_files_to_bucket, \
+    update_bucket_status, \
     remove_old_files_from_bucket, \
     refresh_and_retrieve_module, \
     save_pid
@@ -39,6 +40,7 @@ except Exception as e:
 
 CONFIG_BUCKET = 'config'
 INPUT_BUCKET = 'inputs'
+STATIC_DATA_BUCKET = 'static-data'
 
 BFR = BucketedFileRefresher()
 
@@ -137,6 +139,15 @@ def update_analysis_configs(files, qty):
     return configs
 
 
+def preprocessed_data_cleanup(timestamps):
+
+    for key, timestamp in timestamps.items():
+        for filepath in glob(path.join(preprocessed_datadir, key + '*')):
+            f_timestamp = dt.datetime.fromtimestamp(path.getmtime(filepath))
+            if f_timestamp < timestamp:
+                remove(filepath)
+
+
 if __name__ == "__main__":
 
     # First of all, register pid
@@ -150,14 +161,20 @@ if __name__ == "__main__":
     # Take all possible scraped data from inputs bucket
     dirname = path.dirname(path.realpath(__file__))
     datadir = path.join(dirname, "input_data")
-    if not path.exists(datadir):
-        makedirs(datadir)
-    maybe_retrieve_entire_bucket(basename=datadir, bucket_prefix=INPUT_BUCKET)
+    preprocessed_datadir = path.join(dirname, "browser", "static", "data")
 
-    for pid_blob in [{'name': 'input_pids', 'default': dict()},
-                     {'name': 'analysis_pids', 'default': []}]:
-        if pid_blob['name'].encode('latin-1') not in redis.keys():
-            redis.set(pid_blob['name'], pid_blob['default'])
+    for d in [datadir, preprocessed_datadir]:
+        if not path.exists(d):
+            makedirs(d)
+
+    maybe_retrieve_entire_bucket(basename=datadir, bucket_prefix=INPUT_BUCKET)
+    maybe_retrieve_entire_bucket(basename=preprocessed_datadir, bucket_prefix=STATIC_DATA_BUCKET)
+
+    for blob in [{'name': 'input_pids', 'default': dict()},
+                 {'name': 'analysis_timestamps', 'default': dict()},
+                 {'name': 'analysis_pids', 'default': []}]:
+        if blob['name'].encode('latin-1') not in redis.keys():
+            redis.set(blob['name'], json.dumps(blob['default']))
 
     input_analysis_ratio = 22
 
@@ -175,5 +192,9 @@ if __name__ == "__main__":
         analysis = get_files_to_analyse()
         configs = update_analysis_configs(analysis, ceil(float(len(analysis)) / input_analysis_ratio))
         maybe_keep_analysis_alive(configs)
+
+        timestamps = json.loads(redis.get('analysis_timestamps').decode('latin-1'))
+        preprocessed_data_cleanup(timestamps)
+        update_bucket_status(timestamps, basename=preprocessed_datadir, bucket_prefix=STATIC_DATA_BUCKET)
 
         sleep(300)

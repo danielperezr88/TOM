@@ -220,6 +220,39 @@ def maybe_retrieve_entire_bucket(basename='', client_obj=None, bucket_prefix=Non
     return client_obj
 
 
+def update_bucket_status(timestamps, basename='', client_obj=None, bucket_prefix=None, bucket_suffix=None):
+
+    client_obj = maybe_populate_client_obj(client_obj)
+    if client_obj is None:
+        return
+
+    bucket_name = lookup_bucket(client_obj, prefix=bucket_prefix, suffix=bucket_suffix)
+    if bucket_name is None:
+        return
+
+    bucket = client_obj.get_bucket(bucket_name)
+
+    blobs = bucket.list_blobs()
+    blobs = [b for b in blobs]
+    blob_filenames = [path.join(basename, b.name) for b in blobs]
+    blobs = dict(zip(blob_filenames, blobs))
+
+    for key, timestamp in timestamps.items():
+        for f in glob(path.join(basename, key + '*')):
+            meta = blobs[f].metadata if f in blobs else None
+            if (meta['timestamp'] < timestamp if 'timestamp' in meta else True) if meta is not None else True:
+                blob = storage.Blob(f, bucket)
+                blob.metadata = dict(timestamp=timestamp)
+                with open(f, 'rb') as fp:
+                    blob.upload_from_file(fp)
+
+    for f, blob in blobs.items():
+        if not path.exists(f):
+            blob.delete()
+
+    return client_obj
+
+
 def create_configfile_or_replace_existing_keys(file_path, patterns):
     fh, abs_path = mkstemp()
     with open(abs_path, 'w', encoding='utf-8') as new_file:
