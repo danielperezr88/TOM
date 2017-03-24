@@ -27,10 +27,11 @@ except BaseException as e:
 
 from utils import \
     BucketedFileRefresher, \
+    upload_new_files_to_bucket, \
     maybe_retrieve_entire_bucket, \
-    update_bucket_status, \
     remove_old_files_from_bucket, \
     refresh_and_retrieve_module, \
+    update_bucket_status, \
     save_pid
 
 try:
