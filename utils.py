@@ -10,6 +10,8 @@ import re
 from tempfile import mkstemp
 from importlib import reload
 
+from dateutil import parser
+
 try:
     from google.protobuf import timestamp_pb2
     from gcloud import storage
@@ -77,6 +79,32 @@ def re_sub(pattern, replacement, string):
         return re._expand(pattern, _m(m), replacement)
 
     return re.sub(pattern, _r, string)
+
+
+JSON_CONVERTERS = {
+    'datetime': parser.parse
+}
+
+
+class CSEJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (parser.datetime.datetime,)):
+            return {"val": obj.isoformat(), "_spec_type": "datetime"}
+        #elif isinstance(obj, (decimal.Decimal,)):
+        #    return {"val": str(obj), "_spec_type": "decimal"}
+        else:
+            return super().default(obj)
+
+
+def cse_json_decoding_hook(obj):
+    _spec_type = obj.get('_spec_type')
+    if not _spec_type:
+        return obj
+
+    if _spec_type in JSON_CONVERTERS:
+        return JSON_CONVERTERS[_spec_type](obj['val'])
+    else:
+        raise Exception('Unknown {}'.format(_spec_type))
 
 
 def lookup_bucket(cli, prefix=None, suffix=None):

@@ -32,7 +32,8 @@ from utils import \
     remove_old_files_from_bucket, \
     refresh_and_retrieve_module, \
     update_bucket_status, \
-    save_pid
+    save_pid, \
+    cse_json_decoding_hook
 
 try:
     redis = Redis(host='127.0.0.1', port=6379)
@@ -195,7 +196,7 @@ if __name__ == "__main__":
         configs = update_analysis_configs(analysis, ceil(float(len(analysis)) / input_analysis_ratio))
         maybe_keep_analysis_alive(configs)
 
-        timestamps = json.loads(redis.get('analysis_timestamps').decode('latin-1'))
+        timestamps = json.loads(redis.get('analysis_timestamps').decode('latin-1'), object_hook=cse_json_decoding_hook)
         preprocessed_data_cleanup(timestamps, folder_prefixes=2)
         update_bucket_status(timestamps, basename=preprocessed_datadir, bucket_prefix=STATIC_DATA_BUCKET, folder_prefixes=2)
 

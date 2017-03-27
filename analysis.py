@@ -40,7 +40,9 @@ from utils import \
     BucketedFileRefresher, \
     WEB_URL_REGEX, \
     ANY_URL_REGEX, \
-    re_sub
+    re_sub, \
+    CSEJSONEncoder, \
+    cse_json_decoding_hook
 
 BFR = BucketedFileRefresher()
 filename = "syntaxnet_api_config.py"
@@ -446,10 +448,10 @@ if __name__ == '__main__':
                     while True:
                         try:
                             pipe.watch('analysis_timestamps')
-                            timestamps = json.loads(pipe.get('analysis_timestamps').decode('latin-1'))
+                            timestamps = json.loads(pipe.get('analysis_timestamps').decode('latin-1'), object_hook=cse_json_decoding_hook)
                             timestamps["%s_%dd" % (input_, timeframe)] = timestamp
                             pipe.multi()
-                            pipe.set('analysis_timestamps', json.dumps(timestamps))
+                            pipe.set('analysis_timestamps', json.dumps(timestamps, cls=CSEJSONEncoder))
                             pipe.execute()
                             break
 
