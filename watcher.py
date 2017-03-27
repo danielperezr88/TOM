@@ -42,6 +42,7 @@ except Exception as e:
 
 CONFIG_BUCKET = 'config'
 INPUT_BUCKET = 'inputs'
+PICKLE_BUCKET = 'pickles'
 STATIC_DATA_BUCKET = 'static-data'
 
 BFR = BucketedFileRefresher()
@@ -164,13 +165,15 @@ if __name__ == "__main__":
     # Take all possible scraped data from inputs bucket
     dirname = path.dirname(path.realpath(__file__))
     datadir = path.join(dirname, "input_data")
+    pickledir = path.join(dirname, "pickled_models")
     preprocessed_datadir = path.join(dirname, "browser", "static", "data")
 
-    for d in [datadir, preprocessed_datadir]:
+    for d in [datadir, preprocessed_datadir, pickledir]:
         if not path.exists(d):
             makedirs(d)
 
     maybe_retrieve_entire_bucket(basename=datadir, bucket_prefix=INPUT_BUCKET)
+    maybe_retrieve_entire_bucket(basename=pickledir, bucket_prefix=PICKLE_BUCKET)
     maybe_retrieve_entire_bucket(basename=preprocessed_datadir, bucket_prefix=STATIC_DATA_BUCKET, folder_prefixes=2)
 
     for blob in [{'name': 'input_pids', 'default': dict()},
@@ -198,6 +201,7 @@ if __name__ == "__main__":
 
         timestamps = json.loads(redis.get('analysis_timestamps').decode('latin-1'), object_hook=cse_json_decoding_hook)
         preprocessed_data_cleanup(timestamps, folder_prefixes=2)
+        update_bucket_status(timestamps, basename=pickledir, bucket_prefix=PICKLE_BUCKET)
         update_bucket_status(timestamps, basename=preprocessed_datadir, bucket_prefix=STATIC_DATA_BUCKET, folder_prefixes=2)
 
         sleep(300)
