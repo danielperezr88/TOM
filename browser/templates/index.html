@@ -109,7 +109,7 @@
 
           $('#form-inner-wrapper').css('width', width);
 
-          d3.json("{{ url_for('static', filename = 'data/input'+iid+'_'+tf+'d_document_network.json') }}", function (error, data) {
+          d3.json("{{ url_for('static', filename = 'data/input'+iid+'/'+tf+'d/document_network.json') }}", function (error, data) {
 
               if (error) throw error;
 

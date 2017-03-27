@@ -338,6 +338,12 @@ if __name__ == '__main__':
 
                 timestamp = dt.datetime.now()
 
+                input_dir = path.join(browser_data, input_)
+                timeframe_dir = path.join(input_dir, str(timeframe) + 'd')
+                for d in [input_dir, timeframe_dir]:
+                    if not path.exists(d):
+                        makedirs(d)
+
                 finalpath = path.join(datadir, input_ + '_' + str(timeframe) + 'd_final.csv')
                 df.to_csv(finalpath, sep='\t', encoding='utf-8')
 
@@ -365,36 +371,31 @@ if __name__ == '__main__':
                 topic_model.print_topics(num_words=10)
 
                 # Export topic cloud
-                utils.save_topic_cloud(topic_model, path.join(browser_data, input_ + '_' + str(timeframe) +
-                                                              'd_topic_cloud.json'))
+                utils.save_topic_cloud(topic_model, path.join(timeframe_dir, 'topic_cloud.json'))
 
                 # Export details about topics
                 for topic_id in range(topic_model.nb_topics):
                     custom_save_word_distribution(custom_top_words(topic_model, topic_id, 20),
-                                                  path.join(browser_data, input_ + '_' + str(timeframe) +
-                                                            'd_word_distribution' + str(topic_id) + '.tsv'))
+                                                  path.join(timeframe_dir,'word_distribution' + str(topic_id) + '.tsv'))
                     utils.save_affiliation_repartition(topic_model.affiliation_repartition(topic_id),
-                                                       path.join(browser_data, input_ + '_' + str(timeframe) +
-                                                                 'd_affiliation_repartition' + str(topic_id) + '.tsv'))
+                                                       path.join(timeframe_dir,
+                                                                 'affiliation_repartition' + str(topic_id) + '.tsv'))
                     evolution = []
                     for i in range(timeframe):
                         d = today - dt.timedelta(days=timeframe)+dt.timedelta(days=i)
                         evolution.append((d.strftime("%Y-%m-%d"), topic_model.topic_frequency(topic_id, date=d.strftime("%Y-%m-%d"))))
-                    utils.save_topic_evolution(evolution, path.join(browser_data, input_ + '_' + str(timeframe) +
-                                                                    'd_frequency' + str(topic_id) + '.tsv'))
+                    utils.save_topic_evolution(evolution, path.join(timeframe_dir,'frequency' + str(topic_id) + '.tsv'))
 
                 # Export details about documents
                 for doc_id in range(topic_model.corpus.size):
                     utils.save_topic_distribution(topic_model.topic_distribution_for_document(doc_id),
-                                                  path.join(browser_data, input_ + '_' + str(timeframe) +
-                                                            'd_topic_distribution_d' + str(doc_id) + '.tsv'))
+                                                  path.join(timeframe_dir,'topic_distribution_d' + str(doc_id) + '.tsv'))
 
                 # Export details about words
                 for word_id in range(len(topic_model.corpus.vocabulary)):
                     utils.save_topic_distribution(
                         topic_model.topic_distribution_for_word(word_id),
-                        path.join(browser_data,
-                                  input_ + '_' + str(timeframe) + 'd_topic_distribution_w' + str(word_id) + '.tsv'))
+                        path.join(timeframe_dir, 'topic_distribution_w' + str(word_id) + '.tsv'))
 
                 # Associate documents with topics
                 topic_associations = topic_model.documents_per_topic()
@@ -402,7 +403,7 @@ if __name__ == '__main__':
                 # Export per-topic author network
                 for topic_id, assoc in topic_associations.items():
                     utils.save_json_object(corpus.collaboration_network(assoc), path.join(
-                        browser_data, input_ + '_' + str(timeframe) + 'd_author_network' + str(topic_id) + '.json'))
+                        timeframe_dir, 'author_network' + str(topic_id) + '.json'))
 
                 # Retrieve 6 topic-wise more related documents
                 dists = pd.np.zeros(shape=(corpus.size, topic_model.nb_topics))
@@ -430,8 +431,7 @@ if __name__ == '__main__':
                 data_dict = dict(data=pd.np.reshape(results, (1, -1))[0].tolist(),
                                  concepts=names)
 
-                utils.save_json_object(data_dict, path.join(
-                        browser_data, input_ + '_' + str(timeframe) + 'd_document_network.json'))
+                utils.save_json_object(data_dict, path.join(timeframe_dir, 'document_network.json'))
 
 
                 # Export models
@@ -447,7 +447,7 @@ if __name__ == '__main__':
                         try:
                             pipe.watch('analysis_timestamps')
                             timestamps = json.loads(pipe.get('analysis_timestamps').decode('latin-1'))
-                            timestamps["%s_%dd_" % (input_, timeframe)] = timestamp
+                            timestamps["%s_%dd" % (input_, timeframe)] = timestamp
                             pipe.multi()
                             pipe.set('analysis_timestamps', json.dumps(timestamps))
                             pipe.execute()

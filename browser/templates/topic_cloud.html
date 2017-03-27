@@ -87,7 +87,7 @@
                 .attr("preserveAspectRatio", "xMinYMin meet")
                 .attr("pointer-events", "all");
 
-        d3.json("{{ url_for('static', filename = 'data/input'+iid+'_'+tf+'d_topic_cloud.json') }}", function (error, cloud) {
+        d3.json("{{ url_for('static', filename = 'data/input'+iid+'/'+tf+'d/topic_cloud.json') }}", function (error, cloud) {
             if (error) throw error;
 
             force

@@ -167,7 +167,7 @@
             .attr("height", height + margin.top + margin.bottom)
             .append("g")
             .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'_'+tf+'d_word_distribution'+topic_id+'.tsv') }}", type, function(error, data) {
+    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'/'+tf+'d/word_distribution'+topic_id+'.tsv') }}", type, function(error, data) {
         x.domain(data.map(function(d) { return d.word; }));
         y.domain([0, d3.max(data, function(d) { return d.weight; })]);
         svg.append("g")
@@ -230,7 +230,7 @@
             .attr("height", height2 + margin2.top + margin2.bottom)
             .append("g")
             .attr("transform", "translate(" + margin2.left + "," + margin2.top + ")");
-    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'_'+tf+'d_frequency'+topic_id+'.tsv') }}", function(error, data2) {
+    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'/'+tf+'d/frequency'+topic_id+'.tsv') }}", function(error, data2) {
         if (error) throw error;
 
         data2.forEach(function(d) {
@@ -267,7 +267,7 @@
     var svg3 = d3.select("author-network").append("svg")
             .attr("width", width3)
             .attr("height", height3);
-    d3.json("{{ url_for('static', filename = 'data/input'+iid+'_'+tf+'d_author_network'+topic_id+'.json') }}", function(error, graph) {
+    d3.json("{{ url_for('static', filename = 'data/input'+iid+'/'+tf+'d/author_network'+topic_id+'.json') }}", function(error, graph) {
         if (error) throw error;
         force
                 .nodes(graph.nodes)
@@ -316,7 +316,7 @@
             .attr("height", height4 + margin4.top + margin4.bottom)
             .append("g")
             .attr("transform", "translate(" + margin4.left + "," + margin4.top + ")");
-    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'_'+tf+'d_affiliation_repartition'+topic_id+'.tsv') }}", type, function(error, data4) {
+    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'/'+tf+'d/affiliation_repartition'+topic_id+'.tsv') }}", type, function(error, data4) {
         x4.domain(data4.map(function(d) { return d.affiliation; }));
         y4.domain([0, d3.max(data4, function(d) { return d.count; })]);
         svg4.append("g")

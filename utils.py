@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 from sys import modules
 from glob import glob
-from os import path, remove, close, getpid
+from os import path, remove, close, getpid, makedirs
 import logging
 import shutil
 import json
@@ -196,7 +196,7 @@ def upload_new_files_to_bucket(glob_filename, basename='', client_obj=None, buck
     return client_obj
 
 
-def maybe_retrieve_entire_bucket(basename='', client_obj=None, bucket_prefix=None, bucket_suffix=None):
+def maybe_retrieve_entire_bucket(basename='', client_obj=None, bucket_prefix=None, bucket_suffix=None, folder_prefixes=0):
 
     client_obj = maybe_populate_client_obj(client_obj)
     if client_obj is None:
@@ -210,8 +210,19 @@ def maybe_retrieve_entire_bucket(basename='', client_obj=None, bucket_prefix=Non
 
     blobs = bucket.list_blobs()
     blobs = [b for b in blobs]
-    filenames = [path.join(basename, b.name) for b in blobs]
+    filenames = [path.join(*(
+        [basename] +
+        b.name.split('_')[:folder_prefixes] +
+        ['_'.join(b.name.split('_')[folder_prefixes:])]
+    )) for b in blobs]
+
     for filename, blob in zip(filenames, blobs):
+
+        filedir = path.split(filename)[0]
+        if filedir:
+            if not path.exists(filedir):
+                makedirs(filedir)
+
         if not path.exists(filename):
             fp = open(filename, 'wb')
             blob.download_to_file(fp)
@@ -220,7 +231,7 @@ def maybe_retrieve_entire_bucket(basename='', client_obj=None, bucket_prefix=Non
     return client_obj
 
 
-def update_bucket_status(timestamps, basename='', client_obj=None, bucket_prefix=None, bucket_suffix=None):
+def update_bucket_status(timestamps, basename='', client_obj=None, bucket_prefix=None, bucket_suffix=None, folder_prefixes=0):
 
     client_obj = maybe_populate_client_obj(client_obj)
     if client_obj is None:
@@ -234,11 +245,15 @@ def update_bucket_status(timestamps, basename='', client_obj=None, bucket_prefix
 
     blobs = bucket.list_blobs()
     blobs = [b for b in blobs]
-    blob_filenames = [path.join(basename, b.name) for b in blobs]
+    blob_filenames = [path.join(*(
+        [basename] +
+        b.name.split('_')[:folder_prefixes] +
+        ['_'.join(b.name.split('_')[folder_prefixes:])]
+    )) for b in blobs]
     blobs = dict(zip(blob_filenames, blobs))
 
     for key, timestamp in timestamps.items():
-        for f in glob(path.join(basename, key + '*')):
+        for f in glob(path.join(basename, key, ['*']*(folder_prefixes))):
             meta = blobs[f].metadata if f in blobs else None
             if (meta['timestamp'] < timestamp if 'timestamp' in meta else True) if meta is not None else True:
                 blob = storage.Blob(f, bucket)

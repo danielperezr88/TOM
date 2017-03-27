@@ -124,7 +124,7 @@
     .append("g")
       .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
     svg.call(tip);
-    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'_'+tf+'d_topic_distribution_w'+word_id+'.tsv') }}", type, function(error, data) {
+    d3.tsv("{{ url_for('static', filename = 'data/input'+iid+'/'+tf+'d/topic_distribution_w'+word_id+'.tsv') }}", type, function(error, data) {
       x.domain(data.map(function(d) { return d.topic; }));
       y.domain([0, d3.max(data, function(d) { return d.weight; })]);
       svg.append("g")

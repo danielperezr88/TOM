@@ -140,9 +140,10 @@ def update_analysis_configs(files, qty):
     return configs
 
 
-def preprocessed_data_cleanup(timestamps):
+def preprocessed_data_cleanup(timestamps, folder_prefixes=0):
 
     for key, timestamp in timestamps.items():
+        key = path.join(*(key.split('_')[:folder_prefixes] + ['_'.join(key.split('_')[folder_prefixes:])]))
         for filepath in glob(path.join(preprocessed_datadir, key + '*')):
             f_timestamp = dt.datetime.fromtimestamp(path.getmtime(filepath))
             if f_timestamp < timestamp:
@@ -169,7 +170,7 @@ if __name__ == "__main__":
             makedirs(d)
 
     maybe_retrieve_entire_bucket(basename=datadir, bucket_prefix=INPUT_BUCKET)
-    maybe_retrieve_entire_bucket(basename=preprocessed_datadir, bucket_prefix=STATIC_DATA_BUCKET)
+    maybe_retrieve_entire_bucket(basename=preprocessed_datadir, bucket_prefix=STATIC_DATA_BUCKET, folder_prefixes=2)
 
     for blob in [{'name': 'input_pids', 'default': dict()},
                  {'name': 'analysis_timestamps', 'default': dict()},
@@ -195,7 +196,7 @@ if __name__ == "__main__":
         maybe_keep_analysis_alive(configs)
 
         timestamps = json.loads(redis.get('analysis_timestamps').decode('latin-1'))
-        preprocessed_data_cleanup(timestamps)
-        update_bucket_status(timestamps, basename=preprocessed_datadir, bucket_prefix=STATIC_DATA_BUCKET)
+        preprocessed_data_cleanup(timestamps, folder_prefixes=2)
+        update_bucket_status(timestamps, basename=preprocessed_datadir, bucket_prefix=STATIC_DATA_BUCKET, folder_prefixes=2)
 
         sleep(300)
