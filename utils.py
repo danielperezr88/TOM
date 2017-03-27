@@ -281,7 +281,7 @@ def update_bucket_status(timestamps, basename='', client_obj=None, bucket_prefix
     blobs = dict(zip(blob_filenames, blobs))
 
     for key, timestamp in timestamps.items():
-        for f in glob(path.join(basename, key, ['*']*(folder_prefixes))):
+        for f in glob(path.join(basename, key, *(['*']*(folder_prefixes)))):
             meta = blobs[f].metadata if f in blobs else None
             if (meta['timestamp'] < timestamp if 'timestamp' in meta else True) if meta is not None else True:
                 blob = storage.Blob(f, bucket)
