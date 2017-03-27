@@ -267,13 +267,14 @@ if __name__ == '__main__':
         """Remove files older than 1 year"""
         dates = []
         for each in [f for f in glob(path.join(datadir, pname + "_*.csv"))]:
+            date_string = path.splitext(each)[0].split('_')[-1]
+            if re.match(r'^[0-9]{8}$', date_string) is not None:
+                date = dt.datetime.strptime(date_string, '%Y%m%d').date()
+                if date < today - dt.timedelta(days=365):
+                    remove(each)
+                    continue
 
-            date = dt.datetime.strptime(path.splitext(each)[0].split('_')[-1], '%Y%m%d').date()
-            if date < today - dt.timedelta(days=365):
-                remove(each)
-                continue
-
-            dates += [date]
+                dates += [date]
 
         """Maybe add non-existent file"""
         for day in [today - dt.timedelta(days=d) for d in range(1, 365)]:
