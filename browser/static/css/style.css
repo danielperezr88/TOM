@@ -623,6 +623,34 @@ div.flash {
     *left: 0;
 }
 
+/* Allow Font Awesome Icons in lieu of jQuery UI and only apply when using a FA icon */
+.ui-icon[class*="fa-"] {
+    /* Remove the jQuery UI Icon */
+    background: none repeat scroll 0 0 transparent !important;
+    /* Remove the jQuery UI Text Indent */
+    text-indent: 0;
+    /* Bump it up - jQuery UI is -8px */
+    margin-top: -0.5em !important;
+    font-family: FontAwesome;
+    color: #606060;
+}
+
+.ui-icon[class*="fa-"]:hover {
+    color: #404040;
+}
+
+/* Allow use of icon-large to be properly aligned */
+.ui-icon.icon-large {
+    margin-top: -0.75em;
+}
+
+/* Apply custom style to buttons */
+button.ui-button.ui-button-icon-only {
+    border: none;
+    background: none;
+    margin-left: 0.2em;
+}
+
 /*********************************************************************************/
 
 @font-face{

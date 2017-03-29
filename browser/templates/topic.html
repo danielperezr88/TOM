@@ -50,7 +50,7 @@
     <!--<p>Overall frequency : {{ frequency }}%</p>-->
     <p>
       Chart Search term :
-        <select name="term_select" onChange="window.location.href='/'+this.value+'/{{ tf }}/topic/{{ topic_id }}'">
+        <select name="term_select" onChange="window.location.href='/'+this.value+'/{{ tf }}/index'">
         {% for input in inputs %}
           <option value="{{ input['id'] }}"{% if iid|int == input['id'] %} selected{% endif %}>{{ input['name'] }}</option>
         {% endfor %}
@@ -58,7 +58,7 @@
     </p>
     <p>
       Timeframe :
-        <select name="timeframe_select" onChange="window.location.href='/{{ iid }}/'+this.value+'/topic/{{ topic_id }}'">
+        <select name="timeframe_select" onChange="window.location.href='/{{ iid }}/'+this.value+'/index'">
         {% for tmfr in [31, 93, 365] %}
           <option value="{{ tmfr }}"{% if tmfr is equalto tf|int %} selected{% endif %}>{{ tmfr }} days</option>
         {% endfor %}

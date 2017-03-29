@@ -2,14 +2,16 @@
 from os import path, urandom, getpid, remove
 from binascii import hexlify
 import inspect
+import re
 
 import pickle
 import json
 
 import requests as req
+from input import request as myreq
 
 from flask import Flask, render_template, redirect, url_for, g, abort, session, request, flash
-from flask.ext.qrcode import QRcode
+from flask_qrcode import QRcode
 import werkzeug.exceptions as ex
 from hashlib import sha512
 
@@ -28,19 +30,6 @@ __email__ = "dperez@human-forecast.com"
 CONFIG_BUCKET = 'config'
 ID_BUCKET = 'ids'
 BFR = BucketedFileRefresher()
-
-
-class VoidOrNonexistentTerm(ex.HTTPException):
-    code = 401
-    description = 'Void or non-existent term'
-
-
-class NotAllowed(ex.HTTPException):
-    code = 403
-    description = 'This is not the page you are looking for.'
-
-abort.mapping[401] = VoidOrNonexistentTerm
-abort.mapping[403] = NotAllowed
 
 
 def no_impostors_wanted(s):
@@ -329,12 +318,17 @@ def document_details(iid, tf, did):
         documents.append((str(corpus.title(another_doc[0])).capitalize(),
                           ', '.join(corpus.author(another_doc[0])),
                           corpus.date(another_doc[0]), another_doc[0], round(another_doc[1], 3)))
+
+    url = corpus.data_frame.iloc[int(did)]['url']
+    iframe = len([r for r in myreq(url).headers if re.match(r'x-frame-options', r, re.IGNORECASE) is not None]) == 0
+
     return render_template('document.html',
                            inputs=input_dir,
                            iid=iid,
                            tf=tf,
                            doc_id=did,
-                           url=corpus.data_frame.iloc[int(did)]['url'],
+                           url=url,
+                           iframe=iframe,
                            words=word_list[:21],
                            topic_ids=range(topic_model.nb_topics),
                            doc_ids=range(corpus.size),
@@ -375,7 +369,6 @@ def about():
     return render_template('about.html', headerized_class="non-headerized")
 
 
-
 @app.route('/api/searches/set_active_state', methods=['POST'])
 def api_searches_set_active_state():
 
@@ -386,7 +379,6 @@ def api_searches_set_active_state():
 
 @app.route('/heartbeat', methods=['GET'])
 def heartbeat():
-
     return 'beating', 200
 
 

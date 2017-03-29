@@ -33,7 +33,12 @@
         border: none;
         border-radius: 0;
         background-color: white;
-        padding: 0;
+        padding: 0.2em 102px 0.2em 0.2em;
+        text-align: left;
+    }
+
+    div.ui-dialog > div.ui-dialog-titlebar > span.ui-dialog-title {
+        width: 100%;
     }
 
     div.ui-dialog > button.ui-dialog-titlebar-close {
@@ -45,7 +50,6 @@
     #dialog {
         overflow: hidden;
         padding: 0;
-        height: 480.8px !important;
     }
   </style>
 {% endblock %}
@@ -58,7 +62,7 @@
     <h4>Article {{ doc_id }} ({{ authors }}, {{ year }})</h4>
     <p>
       Chart Search term :
-        <select name="term_select" onChange="window.location.href='/'+this.value+'/{{ tf }}/document/{{ doc_id }}'">
+        <select name="term_select" onChange="window.location.href='/'+this.value+'/{{ tf }}/index'">
         {% for input in inputs %}
           <option value="{{ input['id'] }}"{% if iid|int == input['id'] %} selected{% endif %}>{{ input['name'] }}</option>
         {% endfor %}
@@ -66,7 +70,7 @@
     </p>
     <p>
       Timeframe :
-        <select name="timeframe_select" onChange="window.location.href='/{{ iid }}/'+this.value+'/document/{{ doc_id }}'">
+        <select name="timeframe_select" onChange="window.location.href='/{{ iid }}/'+this.value+'/index'">
         {% for tmfr in [31, 93, 365] %}
           <option value="{{ tmfr }}"{% if tmfr is equalto tf|int %} selected{% endif %}>{{ tmfr }} days</option>
         {% endfor %}
@@ -74,12 +78,19 @@
     </p>
   </div>
   <div id="wrap">
-    <h2>Document preview</h2>
-    <button id="opener"><i class="fa fa-chevron-down" aria-hidden="true"></i></button>
-    <span></span>
-    <div id="dialog" style="width:80%;height:80%;">
-      <iframe src="{{ url }}" style="width:100%;height:100%;border-width:0;"></iframe>
-    </div>
+    {% if iframe %}
+      <h2>Document preview</h2>
+      <button id="opener"><i class="fa fa-chevron-down" aria-hidden="true"></i></button>
+      <span></span>
+      <div id="dialog" style="width:80%;height:80%;">
+        <iframe src="{{ url }}" style="width:100%;height:100%;border-width:0;"></iframe>
+      </div>
+    {% else %}
+      <h2>Open document on a new tab:</h2>
+      <button id="opener"><i class="fa fa-external-link" aria-hidden="true"></i></button>
+      <br/>
+      <span>(Origin doesn't allow external iframe calls)</span>
+    {% endif %}
   </div>
   <div id="wrap">
     <div id="left_column">
@@ -119,40 +130,155 @@
       $('select[name=timeframe_select]').val({{ tf }});
     });
   </script>
-  <script>
-    $( function() {
+  {% if iframe %}
+    <script>
 
-      $( "#dialog" ).dialog({
-        autoOpen: false,
-        appendTo: "#wrap > span",
-        hide: {
-          effect: "blind",
-          duration: 1000
-        }
-      });
+      var showDialogContent = function(){
+        $("#dialog").css({
+          position: 'absolute', height: 'auto', width:'auto', top:'25.56px', bottom:'1px', left:'0px', right:'1px'
+        });
+        $('#dialog').show();
+      };
 
-      function opendialog() {
-          $("#dialog").dialog("open");
-          $('div.ui-dialog').css({
-              position:'relative',
-              width:'100%',
-              height:'500px',
-              top:'0',
-              left:'0'
+      var changeStopFunc = function(){
+        showDialogContent();
+        $('button[title="Restore"]').show();
+        $('button[title="Maximize"]').show();
+      };
+
+      var minimizeFunc = function( e ) {
+        $('div.ui-dialog')
+          .css({height:'26px',position:'absolute',width:'200px',top:'100%',left:'0px'})
+          .css({top:'-=31px'});
+        $('#dialog').dialog({resizable: false, draggable: false});
+        $('#dialog').hide();
+        $('button[title="Restore"]').show();
+        $('button[title="Maximize"]').show();
+      };
+
+      var maximizeFunc = function( e ) {
+        $('div.ui-dialog')
+          .css({
+            height:'auto',width:'auto',position:'absolute',top:'38.19px',left:'0px',right:'0px',bottom:'0px'
           });
-          $("button.ui-dialog-titlebar-close")
-                  .detach()
-                  .appendTo('div.ui-dialog.ui-resizable').css('top','.7em');
-      }
+        $('#dialog').dialog({resizable: true, draggable: true});
+        $('.ui-dialog').draggable('option','containment',"#form-inner-wrapper");
+        $('button[title="Restore"]').show();
+        $('button[title="Maximize"]').hide();
+        showDialogContent();
+      };
 
-      $( "#opener" ).on( "click", function() {
+      var restoreFunc = function( e ) {
+        $('div.ui-dialog').css({
+            position:'relative',
+            width:'100%',
+            height:'500px',
+            top:'0',
+            left:'0'
+        });
+        $('#dialog').dialog({resizable: true, draggable: true});
+        $('.ui-dialog').draggable('option','containment',"#form-inner-wrapper");
+        $('button[title="Restore"]').hide();
+        $('button[title="Maximize"]').show();
+        showDialogContent();
+      };
+
+      var openNewFunc = function( e ) {
+        var win = window.open("{{ url }}", '_blank');
+        if (win) {
+          //Browser has allowed it to be opened
+          win.focus();
+        } else {
+          //Browser has blocked it
+          alert('Please allow popups for this website');
+        }
+        $('div.ui-dialog').hide("blind", 1000);
+      };
+
+      $( function() {
+
+        $( "#dialog" ).dialog({
+          autoOpen: false,
+          appendTo: "#wrap > span",
+          title: "{{ short_content }}",
+          hide: {
+            effect: "blind",
+            duration: 1000
+          },
+          buttons: [
+            {
+              text: false,
+              icon: "fa-external-link",
+              title: "Open in new tab",
+              click: openNewFunc
+            },
+            {
+              text: false,
+              icon: "fa-window-minimize",
+              title: "Minimize",
+              click: minimizeFunc
+            },
+            {
+              text: false,
+              icon: "fa-window-maximize",
+              title: "Maximize",
+              click: maximizeFunc
+            },
+            {
+              text: false,
+              icon: "fa-window-restore",
+              title: "Restore",
+              click: restoreFunc
+            }
+          ],
+          resizeStop: changeStopFunc,
+          dragStop: changeStopFunc
+        });
+
+        function opendialog() {
+            $("#dialog").dialog("open");
+            restoreFunc();
+            $('.ui-dialog').draggable('option','containment',"#form-inner-wrapper");
+            $("button.ui-dialog-titlebar-close")
+                    .detach()
+                    .appendTo('div.ui-dialog-buttonset')
+                    .removeClass("ui-dialog-titlebar-close");
+            $("div.ui-dialog-buttonset")
+                    .detach()
+                    .appendTo('div.ui-dialog.ui-resizable').css({
+                        top: '.2em',
+                        right: '.2em',
+                        position: 'absolute',
+                        'font-size': '.55em'
+                    });
+            $("div.ui-dialog-buttonpane").remove();
+            $("span.ui-dialog-title").on("dblclick", maximizeFunc);
+        }
+
+        $( "#opener" ).on( "click", function() {
+          opendialog();
+        });
+
         opendialog();
+
       });
-
-      opendialog();
-
-    });
-  </script>
+    </script>
+  {% else %}
+    <script>
+      $(function(){
+        $( "#opener" ).on( "click", function() {
+          var win = window.open("{{ url }}", '_blank');
+          if (win) {
+            //Browser has allowed it to be opened
+            win.focus();
+          } else {
+            //Browser has blocked it
+            alert('Please allow popups for this website');
+          }
+        });
+      });
+    </script>
+  {% endif %}
   <script>
 
     /*var interval = Math.floor(1000 / 60 * 10);

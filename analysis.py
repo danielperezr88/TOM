@@ -274,9 +274,11 @@ dt = parser.datetime
 
 if __name__ == '__main__':
 
+    PID = getpid()
+
     logfilename = inspect.getfile(inspect.currentframe()) + ".log"
     logging.basicConfig(filename=logfilename, level=logging.INFO, format='%(asctime)s %(message)s')
-    logging.info("Started")
+    logging.info("[%d] Started" % (PID,))
 
     dirname = path.dirname(path.realpath(__file__))
     datadir = path.join(dirname, "input_data")
@@ -288,7 +290,7 @@ if __name__ == '__main__':
     while True:
 
         # Maybe create data directory
-        browser_data = path.join('browser', 'static', 'data')
+        browser_data = path.join(dirname, 'browser', 'static', 'data')
         if not path.exists(browser_data):
             makedirs(browser_data)
 
@@ -300,13 +302,13 @@ if __name__ == '__main__':
 
             model_used = "syntaxnet"
 
-            inputs = json.loads(redis.get("analysis_config").decode('latin-1'))[str(getpid())]
+            inputs = json.loads(redis.get("analysis_config").decode('latin-1'))[str(PID)]
             for input_ in inputs:
 
                 idx = re.sub(r'input([0-9]+)', r'\1', input_)
                 language = retrieve_input_config(idx)['language']
 
-                logging.info('Processing input %s, timeframe %dd' % (idx, timeframe))
+                logging.info('[%d] Processing input %s, timeframe %dd' % (PID, idx, timeframe))
                 print('Processing input %s, timeframe %dd' % (idx, timeframe))
 
                 if language not in tokenizers:
