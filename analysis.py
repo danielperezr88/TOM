@@ -284,181 +284,181 @@ if __name__ == '__main__':
     datadir = path.join(dirname, "input_data")
     pickledir = path.join(dirname, "pickled_models")
 
+    # Maybe create pickle directory
     if not path.exists(pickledir):
         makedirs(pickledir)
 
+    # Maybe create data directory
+    browser_data = path.join(dirname, 'browser', 'static', 'data')
+    if not path.exists(browser_data):
+        makedirs(browser_data)
+
+    tokenizers = {}
+    cntr = 0
+
     while True:
 
-        # Maybe create data directory
-        browser_data = path.join(dirname, 'browser', 'static', 'data')
-        if not path.exists(browser_data):
-            makedirs(browser_data)
-
         today = dt.datetime.today().date()
+        model_used = "syntaxnet"
 
-        tokenizers = {}
+        configs = json.loads(redis.get("analysis_config").decode('latin-1'))[str(PID)]
+        cidx = cntr % len(configs)
+        cntr += 1
 
-        for timeframe in [31, 93, 365]:
+        input_, timeframe = configs[cidx]
 
-            model_used = "syntaxnet"
+        idx = re.sub(r'input([0-9]+)', r'\1', input_)
+        language = retrieve_input_config(idx)['language']
 
-            inputs = json.loads(redis.get("analysis_config").decode('latin-1'))[str(PID)]
-            for input_ in inputs:
+        logging.info('[%d] Processing input %s, timeframe %dd' % (PID, idx, timeframe))
+        print('Processing input %s, timeframe %dd' % (idx, timeframe))
 
-                idx = re.sub(r'input([0-9]+)', r'\1', input_)
-                language = retrieve_input_config(idx)['language']
+        if language not in tokenizers:
+            tokenizers.update({language: CustomTokenizerBuilder(language)})
 
-                logging.info('[%d] Processing input %s, timeframe %dd' % (PID, idx, timeframe))
-                print('Processing input %s, timeframe %dd' % (idx, timeframe))
+        df = pd.DataFrame()
+        for filepath in glob(path.join(datadir, input_ + '_*.csv')):
+            date_string = path.splitext(filepath)[0].split('_')[-1]
+            if re.match(r'^[0-9]{8}$', date_string) is not None:
+                if dt.datetime.strptime(date_string, '%Y%m%d').date() > \
+                                today - dt.timedelta(days=timeframe):
+                    aux_df = pd.read_csv(filepath, sep='\t', encoding='utf-8')
+                    if not aux_df.empty:
+                        df = df.append(aux_df, ignore_index=True).drop_duplicates()
 
-                if language not in tokenizers:
-                    tokenizers.update({language: CustomTokenizerBuilder(language)})
+        if df.count(0).empty:
+            continue
 
-                df = pd.DataFrame()
-                for filepath in glob(path.join(datadir, input_ + '_*.csv')):
-                    date_string = path.splitext(filepath)[0].split('_')[-1]
-                    if re.match(r'^[0-9]{8}$', date_string) is not None:
-                        if dt.datetime.strptime(date_string, '%Y%m%d').date() > \
-                                        today - dt.timedelta(days=timeframe):
-                            aux_df = pd.read_csv(filepath, sep='\t', encoding='utf-8')
-                            if not aux_df.empty:
-                                df = df.append(aux_df, ignore_index=True).drop_duplicates()
+        if df.count(0)[0] <= 1:
+            continue
 
-                if df.count(0).empty:
+        df['date'] = df.apply(lambda row: generateDateColumn(row), axis=1)
+
+        column_dict = {df.columns[0]: 'id', 'articleBody': 'text', 'creator': 'affiliation'}
+        df.columns = [(c if c not in column_dict else column_dict[c]) for c in df]
+
+        df = df.dropna(subset=['text'])
+
+        if df.count(0)[0] <= 1:
+            continue
+
+        timestamp = dt.datetime.now()
+
+        input_dir = path.join(browser_data, input_)
+        timeframe_dir = path.join(input_dir, str(timeframe) + 'd')
+        for d in [input_dir, timeframe_dir]:
+            if not path.exists(d):
+                makedirs(d)
+
+        finalpath = path.join(datadir, input_ + '_' + str(timeframe) + 'd_final.csv')
+        df.to_csv(finalpath, sep='\t', encoding='utf-8')
+
+        # Load corpus
+        corpus = CustomCorpus(
+            source_file_path=finalpath,
+            language=tokenizers[language].lang_name,
+            vectorization=vectorization,
+            max_relative_frequency=max_tf,
+            min_absolute_frequency=min_tf,
+            token_pattern= \
+                      r'(?u)\b(?:' + \
+                          r'[a-zA-ZáÁàÀäÄâÂéÉèÈëËêÊíÍìÌïÏîÎóÓòÒöÖôÔúÚùÙüÜûÛñÑçÇ\-]' + \
+                          r'[a-zA-ZáÁàÀäÄâÂéÉèÈëËêÊíÍìÌïÏîÎóÓòÒöÖôÔúÚùÙüÜûÛñÑçÇ\-]+' + \
+                        r'|[nNxXyYaAoOeEuU]' + \
+                      r')\b',
+            tokenizer=tokenizers[language]
+        )
+        print('corpus size:', corpus.size)
+        print('vocabulary size:', len(corpus.vocabulary))
+
+        # Infer topics
+        topic_model = NonNegativeMatrixFactorization(corpus=corpus)
+        topic_model.infer_topics(num_topics=int(min([num_topics, corpus.size])))
+        topic_model.print_topics(num_words=10)
+
+        # Export topic cloud
+        utils.save_topic_cloud(topic_model, path.join(timeframe_dir, 'topic_cloud.json'))
+
+        # Export details about topics
+        for topic_id in range(topic_model.nb_topics):
+            custom_save_word_distribution(custom_top_words(topic_model, topic_id, 20),
+                                          path.join(timeframe_dir,'word_distribution' + str(topic_id) + '.tsv'))
+            utils.save_affiliation_repartition(topic_model.affiliation_repartition(topic_id),
+                                               path.join(timeframe_dir,
+                                                         'affiliation_repartition' + str(topic_id) + '.tsv'))
+            evolution = []
+            for i in range(timeframe):
+                d = today - dt.timedelta(days=timeframe)+dt.timedelta(days=i)
+                evolution.append((d.strftime("%Y-%m-%d"), topic_model.topic_frequency(topic_id, date=d.strftime("%Y-%m-%d"))))
+            utils.save_topic_evolution(evolution, path.join(timeframe_dir,'frequency' + str(topic_id) + '.tsv'))
+
+        # Export details about documents
+        for doc_id in range(topic_model.corpus.size):
+            utils.save_topic_distribution(topic_model.topic_distribution_for_document(doc_id),
+                                          path.join(timeframe_dir,'topic_distribution_d' + str(doc_id) + '.tsv'))
+
+        # Export details about words
+        for word_id in range(len(topic_model.corpus.vocabulary)):
+            utils.save_topic_distribution(
+                topic_model.topic_distribution_for_word(word_id),
+                path.join(timeframe_dir, 'topic_distribution_w' + str(word_id) + '.tsv'))
+
+        # Associate documents with topics
+        topic_associations = topic_model.documents_per_topic()
+
+        # Export per-topic author network
+        for topic_id, assoc in topic_associations.items():
+            utils.save_json_object(corpus.collaboration_network(assoc), path.join(
+                timeframe_dir, 'author_network' + str(topic_id) + '.json'))
+
+        # Retrieve 6 topic-wise more related documents
+        dists = pd.np.zeros(shape=(corpus.size, topic_model.nb_topics))
+        for doc_id in range(topic_model.corpus.size):
+            dists[doc_id, :] = topic_model.topic_distribution_for_document(doc_id)
+
+        indices = pd.np.argsort(pd.np.sum(dists, axis=1))[-6:]
+        names = list(uniquefy(
+            map(
+                lambda x: re.sub(r'^www\.', '', x.split('/')[2]),
+                corpus.data_frame['url'].iloc[indices].tolist()
+            )
+        ))
+        n_docs = indices.size
+
+        results = pd.np.empty((n_docs, n_docs - 1), dtype=object)
+        for i in range(n_docs):
+            for j in range(n_docs - 1):
+                i_unsetted = pd.np.array(list(range(i)) + list(range(i+1, n_docs)))
+                results[i, j] = [
+                    names[i],
+                    names[i_unsetted[j]],
+                    pd.np.sum(pd.np.multiply(dists[indices[i]], dists[indices[i_unsetted[j]]])).tolist()]
+
+        data_dict = dict(data=pd.np.reshape(results, (1, -1))[0].tolist(),
+                         concepts=names)
+
+        utils.save_json_object(data_dict, path.join(timeframe_dir, 'document_network.json'))
+
+
+        # Export models
+        with open(path.join(pickledir, input_ + '_' + str(timeframe) + 'd_corpus.pkl'), 'wb') as fp:
+            pickle.dump(corpus, fp)
+
+        with open(path.join(pickledir, input_ + '_' + str(timeframe) + 'd_topic_model.pkl'), 'wb') as fp:
+            pickle.dump(topic_model, fp)
+
+        # Update timestamp for the given input
+        with redis.pipeline() as pipe:
+            while True:
+                try:
+                    pipe.watch('analysis_timestamps')
+                    timestamps = json.loads(pipe.get('analysis_timestamps').decode('latin-1'), object_hook=cse_json_decoding_hook)
+                    timestamps["%s_%dd" % (input_, timeframe)] = timestamp
+                    pipe.multi()
+                    pipe.set('analysis_timestamps', json.dumps(timestamps, cls=CSEJSONEncoder))
+                    pipe.execute()
+                    break
+
+                except WatchError as e:
+                    sleep(0.5)
                     continue
-
-                if df.count(0)[0] <= 1:
-                    continue
-
-                df['date'] = df.apply(lambda row: generateDateColumn(row), axis=1)
-
-                column_dict = {df.columns[0]: 'id', 'articleBody': 'text', 'creator': 'affiliation'}
-                df.columns = [(c if c not in column_dict else column_dict[c]) for c in df]
-
-                df = df.dropna(subset=['text'])
-
-                if df.count(0)[0] <= 1:
-                    continue
-
-                timestamp = dt.datetime.now()
-
-                input_dir = path.join(browser_data, input_)
-                timeframe_dir = path.join(input_dir, str(timeframe) + 'd')
-                for d in [input_dir, timeframe_dir]:
-                    if not path.exists(d):
-                        makedirs(d)
-
-                finalpath = path.join(datadir, input_ + '_' + str(timeframe) + 'd_final.csv')
-                df.to_csv(finalpath, sep='\t', encoding='utf-8')
-
-                # Load corpus
-                corpus = CustomCorpus(
-                    source_file_path=finalpath,
-                    language=tokenizers[language].lang_name,
-                    vectorization=vectorization,
-                    max_relative_frequency=max_tf,
-                    min_absolute_frequency=min_tf,
-                    token_pattern= \
-                              r'(?u)\b(?:' + \
-                                  r'[a-zA-ZáÁàÀäÄâÂéÉèÈëËêÊíÍìÌïÏîÎóÓòÒöÖôÔúÚùÙüÜûÛñÑçÇ\-]' + \
-                                  r'[a-zA-ZáÁàÀäÄâÂéÉèÈëËêÊíÍìÌïÏîÎóÓòÒöÖôÔúÚùÙüÜûÛñÑçÇ\-]+' + \
-                                r'|[nNxXyYaAoOeEuU]' + \
-                              r')\b',
-                    tokenizer=tokenizers[language]
-                )
-                print('corpus size:', corpus.size)
-                print('vocabulary size:', len(corpus.vocabulary))
-
-                # Infer topics
-                topic_model = NonNegativeMatrixFactorization(corpus=corpus)
-                topic_model.infer_topics(num_topics=int(min([num_topics, corpus.size])))
-                topic_model.print_topics(num_words=10)
-
-                # Export topic cloud
-                utils.save_topic_cloud(topic_model, path.join(timeframe_dir, 'topic_cloud.json'))
-
-                # Export details about topics
-                for topic_id in range(topic_model.nb_topics):
-                    custom_save_word_distribution(custom_top_words(topic_model, topic_id, 20),
-                                                  path.join(timeframe_dir,'word_distribution' + str(topic_id) + '.tsv'))
-                    utils.save_affiliation_repartition(topic_model.affiliation_repartition(topic_id),
-                                                       path.join(timeframe_dir,
-                                                                 'affiliation_repartition' + str(topic_id) + '.tsv'))
-                    evolution = []
-                    for i in range(timeframe):
-                        d = today - dt.timedelta(days=timeframe)+dt.timedelta(days=i)
-                        evolution.append((d.strftime("%Y-%m-%d"), topic_model.topic_frequency(topic_id, date=d.strftime("%Y-%m-%d"))))
-                    utils.save_topic_evolution(evolution, path.join(timeframe_dir,'frequency' + str(topic_id) + '.tsv'))
-
-                # Export details about documents
-                for doc_id in range(topic_model.corpus.size):
-                    utils.save_topic_distribution(topic_model.topic_distribution_for_document(doc_id),
-                                                  path.join(timeframe_dir,'topic_distribution_d' + str(doc_id) + '.tsv'))
-
-                # Export details about words
-                for word_id in range(len(topic_model.corpus.vocabulary)):
-                    utils.save_topic_distribution(
-                        topic_model.topic_distribution_for_word(word_id),
-                        path.join(timeframe_dir, 'topic_distribution_w' + str(word_id) + '.tsv'))
-
-                # Associate documents with topics
-                topic_associations = topic_model.documents_per_topic()
-
-                # Export per-topic author network
-                for topic_id, assoc in topic_associations.items():
-                    utils.save_json_object(corpus.collaboration_network(assoc), path.join(
-                        timeframe_dir, 'author_network' + str(topic_id) + '.json'))
-
-                # Retrieve 6 topic-wise more related documents
-                dists = pd.np.zeros(shape=(corpus.size, topic_model.nb_topics))
-                for doc_id in range(topic_model.corpus.size):
-                    dists[doc_id, :] = topic_model.topic_distribution_for_document(doc_id)
-
-                indices = pd.np.argsort(pd.np.sum(dists, axis=1))[-6:]
-                names = list(uniquefy(
-                    map(
-                        lambda x: re.sub(r'^www\.', '', x.split('/')[2]),
-                        corpus.data_frame['url'].iloc[indices].tolist()
-                    )
-                ))
-                n_docs = indices.size
-
-                results = pd.np.empty((n_docs, n_docs - 1), dtype=object)
-                for i in range(n_docs):
-                    for j in range(n_docs - 1):
-                        i_unsetted = pd.np.array(list(range(i)) + list(range(i+1, n_docs)))
-                        results[i, j] = [
-                            names[i],
-                            names[i_unsetted[j]],
-                            pd.np.sum(pd.np.multiply(dists[indices[i]], dists[indices[i_unsetted[j]]])).tolist()]
-
-                data_dict = dict(data=pd.np.reshape(results, (1, -1))[0].tolist(),
-                                 concepts=names)
-
-                utils.save_json_object(data_dict, path.join(timeframe_dir, 'document_network.json'))
-
-
-                # Export models
-                with open(path.join(pickledir, input_ + '_' + str(timeframe) + 'd_corpus.pkl'), 'wb') as fp:
-                    pickle.dump(corpus, fp)
-
-                with open(path.join(pickledir, input_ + '_' + str(timeframe) + 'd_topic_model.pkl'), 'wb') as fp:
-                    pickle.dump(topic_model, fp)
-
-                # Update timestamp for the given input
-                with redis.pipeline() as pipe:
-                    while True:
-                        try:
-                            pipe.watch('analysis_timestamps')
-                            timestamps = json.loads(pipe.get('analysis_timestamps').decode('latin-1'), object_hook=cse_json_decoding_hook)
-                            timestamps["%s_%dd" % (input_, timeframe)] = timestamp
-                            pipe.multi()
-                            pipe.set('analysis_timestamps', json.dumps(timestamps, cls=CSEJSONEncoder))
-                            pipe.execute()
-                            break
-
-                        except WatchError as e:
-                            sleep(0.5)
-                            continue
-
-        sleep(60)

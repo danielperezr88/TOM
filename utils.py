@@ -12,11 +12,18 @@ from importlib import reload
 
 from dateutil import parser
 
+from redis import WatchError
+
+from time import sleep
+
 try:
     from google.protobuf import timestamp_pb2
     from gcloud import storage
 except BaseException as e:
     pass
+
+
+default_timestamp = parser.datetime.datetime.fromtimestamp(0)
 
 
 def save_pid(pname, redis=None, pid=None):
@@ -281,19 +288,53 @@ def update_bucket_status(timestamps, basename='', client_obj=None, bucket_prefix
     blobs = dict(zip(blob_filenames, blobs))
 
     for key, timestamp in timestamps.items():
+        key = key + '*' if folder_prefixes == 0 else key
         for f in glob(path.join(basename, key, *(['*']*(folder_prefixes)))):
             meta = blobs[f].metadata if f in blobs else None
+            meta = json.loads(meta, object_hook=cse_json_decoding_hook) if meta is not None else None
             if (meta['timestamp'] < timestamp if 'timestamp' in meta else True) if meta is not None else True:
-                blob = storage.Blob(f, bucket)
-                blob.metadata = dict(timestamp=timestamp)
+                blob = storage.Blob(path.split(f)[1], bucket)
                 with open(f, 'rb') as fp:
                     blob.upload_from_file(fp)
+                blob.metadata = dict(timestamp=json.loads(timestamp, cls=CSEJSONEncoder))
+                blob.patch()
 
     for f, blob in blobs.items():
         if not path.exists(f):
             blob.delete()
 
     return client_obj
+
+
+def refresh_and_retrieve_timestamps(redis_client, input_ids, timeframes=[31, 93, 365]):
+
+    with redis_client.pipeline() as pipe:
+        while True:
+            try:
+                pipe.watch('analysis_timestamps')
+                timestamps = json.loads(pipe.get('analysis_timestamps').decode('latin-1'),
+                                        object_hook=cse_json_decoding_hook)
+
+                any_ = False
+                for tf in timeframes:
+                    for iid in input_ids:
+                        key = "input%d_%dd" % (iid, tf)
+                        if key not in timestamps:
+                            timestamps[key] = default_timestamp
+                            any_ = True
+
+                if any_:
+                    pipe.multi()
+                    pipe.set('analysis_timestamps', json.dumps(timestamps, cls=CSEJSONEncoder))
+                    pipe.execute()
+
+                break
+
+            except WatchError as e:
+                sleep(0.5)
+                continue
+
+    return timestamps
 
 
 def create_configfile_or_replace_existing_keys(file_path, patterns):

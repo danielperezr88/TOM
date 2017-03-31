@@ -7,6 +7,7 @@ from redis import Redis
 from time import sleep
 from glob import glob
 import datetime as dt
+from math import ceil, floor
 
 import inspect
 
@@ -14,8 +15,6 @@ import logging
 
 import subprocess
 import psutil
-
-from math import ceil
 
 import json
 
@@ -31,9 +30,10 @@ from utils import \
     maybe_retrieve_entire_bucket, \
     remove_old_files_from_bucket, \
     refresh_and_retrieve_module, \
+    refresh_and_retrieve_timestamps, \
     update_bucket_status, \
     save_pid, \
-    cse_json_decoding_hook
+    default_timestamp
 
 try:
     redis = Redis(host='127.0.0.1', port=6379)
@@ -96,50 +96,82 @@ def maybe_keep_inputs_alive(active_inputs, hatch_rate):
             redis.set('input_pids', json.dumps(pids))
 
 
-def get_files_to_analyse():
+class AnalysisWorkerHandler:
 
-    return list(set([path.splitext(path.basename(f))[0].split('_')[0] for f in glob(path.join(datadir, "*.csv"))]))
+    def __init__(self):
+        self.timeframes = None
+        self.prefixes = None
+        self.worker_qty = None
+        self.configs = None
 
+    def __call__(self, timestamps, timeframes, worker_qty):
 
-def maybe_keep_analysis_alive(configs):
+        prefixes = sorted(list(set(
+            [path.splitext(path.basename(f))[0].split('_')[0] for f in glob(path.join(datadir, "*.csv"))]
+        )))
 
-    pids = [pid for pid in json.loads(redis.get('analysis_pids').decode('latin-1')) if check_pid(pid)]
+        timeframes = sorted(timeframes)
 
-    qty = len(configs)
-    prev_qty = len(pids)
+        pids = [pid for pid in json.loads(redis.get('analysis_pids').decode('latin-1')) if check_pid(pid)]
 
-    if prev_qty < qty:
-        [pids.append(maybe_launch_py(path.join(dirname, 'analysis.py'))) for i in range(prev_qty, qty)]
-    elif prev_qty > qty:
-        [maybe_stop_py(pids[-i+(qty-1)]) for i in range(qty, prev_qty)]
-        pids = pids[:-(prev_qty-qty)]
+        if any([self.timeframes != timeframes, self.worker_qty != worker_qty, self.prefixes != prefixes]):
 
-    redis.set('analysis_config', json.dumps(dict(zip(pids, configs))))
-    redis.set('analysis_pids', json.dumps(pids))
+            self.timeframes = timeframes
+            self.worker_qty = worker_qty
+            self.prefixes = prefixes
 
+            timestamp_sorting = lambda x: timestamps["%s_%dd" % x] if "%s_%dd" % x in timestamps else default_timestamp
 
-def update_analysis_configs(files, qty):
+            sets = sorted(
+                [(prefix, timeframe) for prefix in prefixes for timeframe in timeframes],
+                key=timestamp_sorting
+            )
 
-    # Avoid float code related errors
-    epsilon = (1. / qty) * 0.9
+            # Schedule analysis sets according to potential relative processing
+            # time (which depends directly on relative timeframe). This is:
+            #
+            # [timeframe]
+            #             ^
+            #       tf2=5 |    o    o    o    o    o    o    o    o    o    o
+            #       tf1=3 |  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o
+            #       tf0=2 | o o o o o o o o o o o o o o o o o o o o o o o o o
+            #             +--------------------------------------------------->
+            #                                                       [occurrence]
+            #
+            # scheduling->[tf0, tf1, tf0, tf2, tf0, tf1, tf0, tf1, tf0, tf2, tf0...]
+            #
 
-    qty_files = len(files)
-    file_share = float(qty_files) / qty
+            prefix_qty = len(prefixes)
+            min_tf = timeframes[0]
+            max_tf = timeframes[-1]
 
-    configs = []
-    residual = 0.
-    next = 0
-    for i in range(1, qty+1):
+            analysis = []
+            for it in range(min_tf, ceil(float(prefix_qty * max_tf) / min_tf) * min_tf + 1, min_tf):
+                for tf in timeframes:
+                    if tf == min_tf or it % tf < (it - min_tf) % tf:
+                        analysis += [[item for item in sets if item[1] == tf][floor(it / tf - 1) % prefix_qty]]
 
-        share = int(file_share + residual + epsilon)
-        residual = file_share + residual - share
+            configs = [[]]*worker_qty
+            for i, item in enumerate(analysis):
+                configs[i % worker_qty] += [item]
 
-        file_idxs = [next + r for r in range(share)]
-        configs.append([files[idx] for idx in file_idxs])
+            self.configs = configs
 
-        next = file_idxs[-1] + 1
+        # Maybe add or remove worker processes
+        prev_qty = len(pids)
 
-    return configs
+        any_ = False
+        if prev_qty < worker_qty:
+            [pids.append(maybe_launch_py(path.join(dirname, 'analysis.py'))) for i in range(prev_qty, worker_qty)]
+            any_ = True
+        elif prev_qty > worker_qty:
+            [maybe_stop_py(pids[-i + (worker_qty - 1)]) for i in range(worker_qty, prev_qty)]
+            pids = pids[:-(prev_qty - worker_qty)]
+            any_ = True
+
+        if any_:
+            redis.set('analysis_config', json.dumps(dict(zip(pids, self.configs))))
+            redis.set('analysis_pids', json.dumps(pids))
 
 
 def preprocessed_data_cleanup(timestamps, folder_prefixes=0):
@@ -182,7 +214,9 @@ if __name__ == "__main__":
         if blob['name'].encode('latin-1') not in redis.keys():
             redis.set(blob['name'], json.dumps(blob['default']))
 
-    input_analysis_ratio = 22
+    analysis_workers = 2
+    timeframes = [31, 93, 365]
+    AWH = AnalysisWorkerHandler()
 
     # Main loop
     while True:
@@ -190,16 +224,14 @@ if __name__ == "__main__":
         inputs = refresh_and_retrieve_module("topic_model_browser_config.py", BFR, CONFIG_BUCKET)
         active_inputs = refresh_and_retrieve_module("topic_model_browser_active_inputs.py", BFR, CONFIG_BUCKET,
                                                     dict(active=[1] * len(inputs.inputs)))
+        timestamps = refresh_and_retrieve_timestamps(redis, list(map(lambda x: x['id'], inputs.inputs)), timeframes)
 
         maybe_keep_inputs_alive(active_inputs.active, hatch_rate=2)
         upload_new_files_to_bucket(glob_filename='input*.csv', basename=datadir, bucket_prefix=INPUT_BUCKET)
         remove_old_files_from_bucket(basename=datadir, bucket_prefix=INPUT_BUCKET)
 
-        analysis = get_files_to_analyse()
-        configs = update_analysis_configs(analysis, ceil(float(len(analysis)) / input_analysis_ratio))
-        maybe_keep_analysis_alive(configs)
+        AWH(timestamps, timeframes, analysis_workers)
 
-        timestamps = json.loads(redis.get('analysis_timestamps').decode('latin-1'), object_hook=cse_json_decoding_hook)
         preprocessed_data_cleanup(timestamps, folder_prefixes=2)
         update_bucket_status(timestamps, basename=pickledir, bucket_prefix=PICKLE_BUCKET)
         update_bucket_status(timestamps, basename=preprocessed_datadir, bucket_prefix=STATIC_DATA_BUCKET, folder_prefixes=2)
