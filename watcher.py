@@ -151,7 +151,7 @@ class AnalysisWorkerHandler:
                     if tf == min_tf or it % tf < (it - min_tf) % tf:
                         analysis += [[item for item in sets if item[1] == tf][floor(it / tf - 1) % prefix_qty]]
 
-            configs = [[]]*worker_qty
+            configs = [[] for i in range(worker_qty)]
             for i, item in enumerate(analysis):
                 configs[i % worker_qty] += [item]
 

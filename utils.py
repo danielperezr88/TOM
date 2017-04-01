@@ -93,6 +93,12 @@ JSON_CONVERTERS = {
 }
 
 
+def metasplit(p, t):
+    if t > 0:
+        return metasplit(path.split(p)[0], t - 1) + [path.split(p)[1]]
+    return list(path.split(p))
+
+
 class CSEJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, (parser.datetime.datetime,)):
@@ -288,15 +294,20 @@ def update_bucket_status(timestamps, basename='', client_obj=None, bucket_prefix
     blobs = dict(zip(blob_filenames, blobs))
 
     for key, timestamp in timestamps.items():
-        key = key + '*' if folder_prefixes == 0 else key
-        for f in glob(path.join(basename, key, *(['*']*(folder_prefixes)))):
+        key_parts = key.split('_')
+        n_key_parts = len(key_parts)
+        subpath = path.join(
+            path.join(*key_parts[:folder_prefixes]) if folder_prefixes != 0 else '',
+            '_'.join(key_parts[folder_prefixes:])
+        ) + '*'
+        for f in glob(path.join(basename, subpath, *(['*']*(folder_prefixes - n_key_parts)))):
             meta = blobs[f].metadata if f in blobs else None
             meta = json.loads(meta, object_hook=cse_json_decoding_hook) if meta is not None else None
             if (meta['timestamp'] < timestamp if 'timestamp' in meta else True) if meta is not None else True:
-                blob = storage.Blob(path.split(f)[1], bucket)
+                blob = storage.Blob('_'.join(metasplit(f, folder_prefixes)[1:]), bucket)
                 with open(f, 'rb') as fp:
                     blob.upload_from_file(fp)
-                blob.metadata = dict(timestamp=json.loads(timestamp, cls=CSEJSONEncoder))
+                blob.metadata = dict(timestamp=json.dumps(timestamp, cls=CSEJSONEncoder))
                 blob.patch()
 
     for f, blob in blobs.items():
