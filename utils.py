@@ -302,7 +302,7 @@ def update_bucket_status(timestamps, basename='', client_obj=None, bucket_prefix
         ) + '*'
         for f in glob(path.join(basename, subpath, *(['*']*(folder_prefixes - n_key_parts)))):
             meta = blobs[f].metadata if f in blobs else None
-            meta = json.loads(meta, object_hook=cse_json_decoding_hook) if meta is not None else None
+            meta = json.loads(meta['timestamp'], object_hook=cse_json_decoding_hook) if meta is not None else None
             if (meta['timestamp'] < timestamp if 'timestamp' in meta else True) if meta is not None else True:
                 blob = storage.Blob('_'.join(metasplit(f, folder_prefixes)[1:]), bucket)
                 with open(f, 'rb') as fp:
