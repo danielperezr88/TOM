@@ -140,8 +140,11 @@ def syntaxnet_api_filter_text(text, types, language):
 
 def pattern_filter_text(text, types, language):
 
+    # Avoid error-throwing constructs
     text = emoji_pattern.sub(r'', text)
     text = re.sub(r'\"', r'', text)
+    text = re.sub(r'(\W)\-(\w)', r'\1\2', text, re.IGNORECASE)
+    text = re.sub(r'(\W)\-\-(\w)', r'\1\2', text, re.IGNORECASE)
 
     command = shlex.split('%s "%s" --language %s --types %s' %
                           (path.join(dirname, 'pattern_pos.py'), text, language, ' '.join(types)))
