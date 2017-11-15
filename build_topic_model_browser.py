@@ -115,7 +115,6 @@ def add_search_term(name, query, language):
         create_configfile_or_replace_existing_keys('topic_model_browser_active_inputs.py', dict(active=active))
         return False
 
-    #print('\nSearch term added:\n\n\tName: %s\n\tQuery: %s\n\tLanguage: %s\n\n' % (name, query, language))
     return True
 
 def change_active_state(id, active):
@@ -131,7 +130,6 @@ def change_active_state(id, active):
         create_configfile_or_replace_existing_keys('topic_model_browser_active_inputs.py', dict(active=active_))
         return False
 
-    #print('\nActive State Changed:\n\n\tId: %d\n\tState: %s\n\n' % (int(id[0]), "active" if int(active[0]) else "inactive"))
     return True
 
 

@@ -23,6 +23,9 @@ try:
     from gcloud import storage
 except BaseException as e:
     pass
+	
+from threading import Thread
+from queue import Queue, Empty
 
 from utils import \
     BucketedFileRefresher, \
@@ -48,6 +51,29 @@ STATIC_DATA_BUCKET = 'static-data'
 BFR = BucketedFileRefresher()
 
 
+def enqueue_output(out, queue):
+    for line in iter(out.readline, b''):
+        queue.put(line)
+    out.close()
+
+
+def launch_py_detached(filepath):
+    proc = subprocess.Popen([pythonPath, filepath], stdout=subprocess.PIPE)
+    q = Queue()
+    t = Thread(target=enqueue_output, args=(proc.stdout, q))
+    t.daemon = True
+    t.start()
+
+    pid = None
+    while pid is None:
+        try:
+            pid = q.get(timeout=.1)
+        except Empty as e:
+            pass
+
+    return pid.decode().strip("\n")
+
+
 def check_pid(pid):
     return int(pid) in psutil.pids() if pid is not None else False
 
@@ -69,9 +95,9 @@ def maybe_stop_py(pid):
     return False
 
 
-def maybe_launch_py(filepath, hatch_rate=None, pid=None):
+def maybe_launch_py(filepath, hatch_rate=None, pid=None, detached=False):
     if not check_pid(pid):
-        pid = launch_py(filepath)
+        pid = launch_py_detached(filepath) if detached else launch_py(filepath)
         if hatch_rate is not None:
             sleep(1. / hatch_rate)
         return pid
@@ -162,7 +188,7 @@ class AnalysisWorkerHandler:
 
         any_ = False
         if prev_qty < worker_qty:
-            [pids.append(maybe_launch_py(path.join(dirname, 'analysis.py'))) for i in range(prev_qty, worker_qty)]
+            [pids.append(maybe_launch_py(path.join(dirname, 'analysis_launcher.py'), detached=True)) for i in range(prev_qty, worker_qty)]
             any_ = True
         elif prev_qty > worker_qty:
             [maybe_stop_py(pids[-i + (worker_qty - 1)]) for i in range(worker_qty, prev_qty)]

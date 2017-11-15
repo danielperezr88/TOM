@@ -19,6 +19,7 @@ from time import sleep
 try:
     from google.protobuf import timestamp_pb2
     from gcloud import storage
+    from gcloud.exceptions import NotFound
 except BaseException as e:
     pass
 
@@ -312,7 +313,10 @@ def update_bucket_status(timestamps, basename='', client_obj=None, bucket_prefix
 
     for f, blob in blobs.items():
         if not path.exists(f):
-            blob.delete()
+		    try:
+                blob.delete()
+			except NotFound as e:
+			    pass
 
     return client_obj
 
