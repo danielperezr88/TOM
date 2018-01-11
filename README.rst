@@ -8,11 +8,11 @@ discovered topics. This results can be consumed navigating through the app.
 Github's AdrienGuille/TOM project to be credited for the analytical approach and most of the webapp
 UI and UX design.
 
-**SCOPE:  [New Product Development]**
+::
 
-**TARGET: [Final Product Development]**
-
-**STATUS: [Production Ready]**
+  SCOPE:     [New Product Development]
+  TARGET:    [Final Product Development]
+  STATUS:    [Production Ready]
 
 Potential Improvements:
 -----------------------
