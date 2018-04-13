@@ -195,7 +195,7 @@ if __name__ == '__main__':
     if not path.exists(logDir):
         makedirs(logDir)
     logfilename = path.join(logDir, pname) + ".log"
-    logging.basicConfig(filename=logfilename, level=logging.ERROR, format='%(asctime)s %(message)s')
+    logging.basicConfig(filename=logfilename, level=logging.INFO, format='%(asctime)s %(message)s')
     logging.info('Started')
 
     """Import config"""
@@ -295,7 +295,7 @@ if __name__ == '__main__':
 
             toc = dt.datetime.now()
             if toc - twelve_hour_tic > dt.timedelta(hours=12):
-                eight_hour_tic = toc
+                twelve_hour_tic = toc
                 restart = True
                 break
 

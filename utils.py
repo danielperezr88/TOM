@@ -313,10 +313,10 @@ def update_bucket_status(timestamps, basename='', client_obj=None, bucket_prefix
 
     for f, blob in blobs.items():
         if not path.exists(f):
-		    try:
+            try:
                 blob.delete()
-			except NotFound as e:
-			    pass
+            except NotFound as e:
+                pass
 
     return client_obj
 

@@ -23,7 +23,7 @@ try:
     from gcloud import storage
 except BaseException as e:
     pass
-	
+
 from threading import Thread
 from queue import Queue, Empty
 
@@ -72,7 +72,6 @@ def launch_py_detached(filepath):
             pass
 
     return pid.decode().strip("\n")
-
 
 def check_pid(pid):
     return int(pid) in psutil.pids() if pid is not None else False
