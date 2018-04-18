@@ -320,7 +320,8 @@ def document_details(iid, tf, did):
                           corpus.date(another_doc[0]), another_doc[0], round(another_doc[1], 3)))
 
     url = corpus.data_frame.iloc[int(did)]['url']
-    iframe = len([r for r in myreq(url).headers if re.match(r'x-frame-options', r, re.IGNORECASE) is not None]) == 0
+    url_req = myreq(url)
+    iframe = False if url_req is None else len([r for r in url_req.headers if re.match(r'x-frame-options', r, re.IGNORECASE) is not None]) == 0
 
     return render_template('document.html',
                            inputs=input_dir,
